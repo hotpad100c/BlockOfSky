@@ -1,0 +1,8 @@
+{
+    "vertex": "sky:screen",
+    "fragment": "sky:depth_copy",
+    "samplers": [
+        { "name": "Depth" }
+    ],
+    "uniforms": []
+}

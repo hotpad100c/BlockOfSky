@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "ml.mypals.sky.mixin",
+  "plugin": "ml.mypals.sky.mixin.SkyMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "iris.IrisRenderingPipelineAccessor",
+    "iris.IrisRenderingPipelineMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
