@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "ml.mypals.sky.smoke.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "CreateWorldScreenAccessor",
+    "ShaderSkyHolesCapture",
+    "SkyCubesCapture"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,0 +1,13 @@
+{
+    "vertex": "sky:screen",
+    "fragment": "sky:hole",
+    "samplers": [
+        { "name": "Before" },
+        { "name": "After" },
+        { "name": "SkySnapshot" },
+        { "name": "CurrentDepth" }
+    ],
+    "uniforms": [
+        { "name": "Mode", "type": "int", "count": 1, "values": [ 0 ] }
+    ]
+}

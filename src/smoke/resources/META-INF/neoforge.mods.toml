@@ -1,0 +1,19 @@
+modLoader="javafml"
+loaderVersion="[1,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="sky_smoke"
+version="0"
+displayName="Sky in-game check (development only)"
+description="Builds a test scene, saves screenshots and intermediate textures, and quits."
+
+[[mixins]]
+config="sky_smoke.mixins.json"
+
+[[dependencies.sky_smoke]]
+    modId="sky"
+    type="required"
+    versionRange="*"
+    ordering="AFTER"
+    side="CLIENT"
