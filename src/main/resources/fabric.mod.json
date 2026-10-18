@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "sky",
+  "version": "${version}",
+  "name": "Sky",
+  "description": "A block that shows the sky. With a shader pack, it shows the pack's own sky.",
+  "authors": [
+    "hotpad100c"
+  ],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "ml.mypals.sky.SkyMod"
+    ],
+    "client": [
+      "ml.mypals.sky.client.SkyClient"
+    ]
+  },
+  "mixins": [
+    "sky.client.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.0",
+    "fabric-api": "*",
+    "minecraft": "~26.3"
+  }
+}

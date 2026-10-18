@@ -1,0 +1,2442 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A frame of the sky block</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg: #f4f6fa;
+  --surface: #ffffff;
+  --fg: #1a2033;
+  --muted: #5b6478;
+  --line: #d8deea;
+  --depth: #2f4fc4;
+  --probe: #c97a12;
+  --pack: #6b4fa8;
+  --merge: #2c8a55;
+  --bad: #b8433a;
+  --code-bg: #e9edf5;
+  --lane-a: #f1edf9; --lane-b: #eaeffc; --lane-c: #f7f1e6; --lane-d: #e8f4ed;
+  --font-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10131c; --surface: #181c28; --fg: #e3e7f1; --muted: #9aa3b8; --line: #2b3142;
+    --depth: #8ea4ff; --probe: #f0a845; --pack: #b79cf0; --merge: #6fcf97; --bad: #ef8a80; --code-bg: #20263a;
+    --lane-a: #1b1828; --lane-b: #161c2e; --lane-c: #211d17; --lane-d: #15221b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10131c; --surface: #181c28; --fg: #e3e7f1; --muted: #9aa3b8; --line: #2b3142;
+  --depth: #8ea4ff; --probe: #f0a845; --pack: #b79cf0; --merge: #6fcf97; --bad: #ef8a80; --code-bg: #20263a;
+  --lane-a: #1b1828; --lane-b: #161c2e; --lane-c: #211d17; --lane-d: #15221b;
+  color-scheme: dark;
+}
+
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.75; }
+.page {
+  max-width: 76rem; margin: 0 auto; padding-block: 2.5rem 4rem;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 2.75rem;
+}
+.prose { max-width: 46em; min-width: 0; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.3; margin: 0; }
+h1 { font-size: 2rem; }
+h2 { font-size: 1.4rem; }
+h3 { font-size: 1.05rem; }
+p { margin: 0; }
+.stack { display: grid; gap: 1rem; }
+.eyebrow { font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 4px; overflow-wrap: anywhere; }
+button:focus-visible, a:focus-visible, .node img:focus-visible { outline: 2px solid var(--probe); outline-offset: 2px; }
+ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 0.35rem; }
+
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+@media (max-width: 720px) { .pair { grid-template-columns: 1fr; } }
+figure { margin: 0; display: grid; gap: 0.5rem; min-width: 0; }
+figure img { display: block; width: 100%; aspect-ratio: 854 / 480; border-radius: 6px; border: 1px solid var(--line); background: #000; }
+figcaption { font-size: 0.88rem; color: var(--muted); line-height: 1.6; }
+.tag { display: inline-block; font-family: var(--font-mono); font-size: 0.72rem; font-weight: 500; letter-spacing: 0.04em;
+  padding: 0.05em 0.5em; border-radius: 999px; margin-right: 0.4em; border: 1px solid currentColor; }
+.tag.bad { color: var(--bad); }
+.tag.good { color: var(--merge); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; font-size: 0.88rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 0.45rem; }
+.swatch { width: 1.6rem; height: 0; border-top: 2.5px solid; display: inline-block; }
+.swatch.dash { border-top-style: dashed; }
+.chip { width: 0.9rem; height: 0.9rem; border-radius: 3px; display: inline-block; border: 1px solid var(--line); }
+
+.flow-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.flow {
+  position: relative; min-width: 84rem; padding: 0.75rem;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 5.5rem; row-gap: 2.2rem;
+}
+.lane-bg { border-radius: 8px; margin: -0.25rem -1.2rem; z-index: 0; }
+.lane-head {
+  grid-row: 1; z-index: 2; font-weight: 700; font-size: 0.95rem; padding: 0.35rem 0.25rem 0;
+  display: grid; gap: 0.1rem;
+}
+.lane-head small { font-weight: 400; color: var(--muted); font-size: 0.78rem; line-height: 1.5; }
+svg.edges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; overflow: visible; }
+svg.edges text { font-family: var(--font-body); font-size: 12px; }
+.node {
+  position: relative; z-index: 2; background: var(--surface); border: 1.5px solid var(--line); border-radius: 8px;
+  padding: 0.6rem 0.7rem 0.7rem; display: grid; gap: 0.45rem; align-content: start; align-self: start; min-width: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.node[data-kind="pack"] { border-color: var(--pack); }
+.node[data-kind="depth"] { border-color: var(--depth); }
+.node[data-kind="probe"] { border-color: var(--probe); }
+.node[data-kind="channel"] { border-color: var(--line); border-left: 4px solid var(--depth); }
+.node[data-kind="merge"] { border-color: var(--merge); }
+.node .when { font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); letter-spacing: 0.02em; }
+.node h3 { font-size: 0.93rem; }
+.node p { font-size: 0.82rem; line-height: 1.6; color: var(--muted); }
+.node .imgs { display: grid; gap: 0.35rem; grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr)); }
+.node .imgs figure { gap: 0.15rem; }
+.node .imgs img { cursor: zoom-in; border-radius: 4px; }
+.node .crop { position: relative; overflow: hidden; border-radius: 4px; border: 1px solid var(--line); background: #000; max-width: 100%; }
+.node .crop img { position: absolute; max-width: none; aspect-ratio: auto; height: auto; border: none; border-radius: 0; }
+.node .imgs figcaption { font-size: 0.7rem; line-height: 1.4; }
+.node code { font-size: 0.78em; }
+
+dialog.zoom { border: none; padding: 0; background: transparent; max-width: min(96vw, 1300px); }
+dialog.zoom::backdrop { background: rgba(8, 10, 18, 0.82); }
+dialog.zoom figure { background: var(--surface); padding: 0.75rem; border-radius: 10px; }
+dialog.zoom img { width: 100%; height: auto; }
+dialog.zoom figcaption { color: var(--fg); font-size: 0.95rem; }
+dialog.zoom button { justify-self: end; font: inherit; font-size: 0.85rem; background: var(--code-bg); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 0.2rem 0.8rem; cursor: pointer; }
+
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
+.toolbar button {
+  font: inherit; font-size: 0.88rem; color: var(--fg); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 6px; padding: 0.3rem 0.9rem; cursor: pointer;
+}
+.toolbar button:hover { border-color: var(--depth); }
+.toolbar button[aria-pressed="true"] { background: var(--depth); border-color: var(--depth); color: var(--surface); }
+.variants { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.toolbar .variants button { border: none; border-radius: 0; }
+.toolbar .variants button + button { border-left: 1px solid var(--line); }
+.toolbar .variants button[aria-pressed="true"] { background: var(--fg); color: var(--surface); }
+.node .boxed { position: relative; }
+.node .region { position: absolute; border: 2px dashed var(--probe); pointer-events: none; box-sizing: border-box; }
+.flow-empty { grid-column: 1 / -1; grid-row: 2; z-index: 2; padding: 1.5rem; color: var(--muted); }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; font-size: 0.9rem; font-variant-numeric: tabular-nums; min-width: 32rem; }
+th, td { text-align: left; padding: 0.4rem 0.9rem 0.4rem 0; border-bottom: 1px solid var(--line); }
+th { font-weight: 500; color: var(--muted); }
+td.num { font-family: var(--font-mono); }
+.note { border-left: 3px solid var(--line); padding: 0.25rem 0 0.25rem 1rem; color: var(--muted); font-size: 0.92rem; }
+@media (prefers-reduced-motion: no-preference) { .node { transition: box-shadow 0.15s; } .node:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.12); } }
+
+html[data-lang="en"] [lang="zh-CN"], html[data-lang="zh"] [lang="en"] { display: none !important; }
+.topbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<main class="page">
+
+  <header class="stack">
+    <div class="topbar">
+      <p class="eyebrow">Sky · Minecraft 1.21.1 · NeoForge · Iris 1.8</p>
+      <div class="toolbar"><div class="variants" id="langs" role="group" aria-label="Language">
+        <button type="button" data-lang="en">English</button><button type="button" data-lang="zh">中文</button>
+      </div></div>
+    </div>
+    <h1 lang="en">A frame of the sky block</h1>
+<h1 lang="zh-CN">天空方块的一帧</h1>
+    <p lang="en" class="prose">The sky block is a window to the sky: whatever is behind it, even solid stone, you see the sky through it. The scene below is a closed stone room lit by glowstone. Its far wall has a window made of sky blocks with three blocks of solid stone right behind it; a stone block and a light blue glass block stand in front of the window.</p>
+<p lang="zh-CN" class="prose">天空方块就像一扇通向天空的窗：哪怕它后面是实心的石头，看过去也是天空。下面的场景是一个封闭的石头房间，用荧石照明。远处墙上有一扇由天空方块组成的窗，窗的正后方是三格厚的石头；窗前放了一块石头和一块浅蓝玻璃。</p>
+    <div class="pair">
+      <figure>
+        <img src="img/bsl/without.png" alt="">
+        <figcaption lang="en"><span class="tag bad">without</span>The window replaced by stone: a plain stone wall. There is only stone behind the window.</figcaption>
+<figcaption lang="zh-CN"><span class="tag bad">没有天空方块</span>窗的位置换成石头，就是一面普通的石墙。窗后面本来就是石头。</figcaption>
+      </figure>
+      <figure>
+        <img src="img/bsl/front.png" alt="">
+        <figcaption lang="en"><span class="tag good">sky block</span>The same spot shows the shader pack's (BSL) own sky; the stone and glass in front of it still draw.</figcaption>
+<figcaption lang="zh-CN"><span class="tag good">天空方块</span>同一个位置显示出光影（BSL）自己的天空；窗前的石头和玻璃照常显示。</figcaption>
+      </figure>
+    </div>
+    <p lang="en" class="prose">Without a shader pack, the mod photographs the vanilla sky into a cube and maps it onto the block's faces. With a shader pack, the mod makes the pack treat the block's pixels as sky, and the pack draws its own sky there. The flowchart switches between the three cases; every picture is a real buffer from the same frame of the smoke test.</p>
+<p lang="zh-CN" class="prose">不开光影时，模组把原版天空拍成一个立方体，再贴到方块的面上。开着光影时，模组让光影把方块所在的像素当成天空，由光影自己画出天空。下面的流程图可以在三种情况之间切换，每张图都是冒烟测试里同一帧的真实缓冲。</p>
+  </header>
+
+  <section class="stack" aria-labelledby="flow-title">
+    <h2 id="flow-title"><span lang="en">Flowchart</span><span lang="zh-CN">流程图</span></h2>
+    <div class="legend">
+      <span><i class="swatch" style="border-color: var(--pack)"></i><span lang="en">the pack's or vanilla's own steps</span><span lang="zh-CN">光影或原版自己的步骤</span></span>
+      <span><i class="chip" style="background: var(--probe)"></i><span lang="en">the sky block's steps</span><span lang="zh-CN">天空方块的步骤</span></span>
+      <span><i class="swatch" style="border-color: var(--depth)"></i><span lang="en">the sky block's data</span><span lang="zh-CN">天空方块的数据</span></span>
+      <span><i class="swatch" style="border-color: var(--merge)"></i><span lang="en">result</span><span lang="zh-CN">结果</span></span>
+      <span lang="en">Depth: nearer is whiter, far is black, the far plane (sky) is dark blue; the orange dashed box is where Kappa actually draws</span>
+      <span lang="zh-CN">深度图：越近越白，远处是黑色，最远（天空）是深蓝；橙色虚线框是 Kappa 实际画到的区域</span>
+    </div>
+    <div class="toolbar" role="toolbar">
+      <div class="variants" id="variants" role="group"></div>
+    </div>
+    <div class="flow-scroll">
+      <div class="flow" id="flow">
+        <svg class="edges" id="edges" aria-hidden="true"></svg>
+      </div>
+    </div>
+    <p lang="en" class="note">Click a picture to enlarge it. On narrow screens the flowchart scrolls sideways. Window 854×480; BSL v8.4, Kappa v5.3.</p>
+<p lang="zh-CN" class="note">点图片可以放大。窄屏上流程图可以左右滑动。窗口 854×480；BSL v8.4、Kappa v5.3。</p>
+  </section>
+
+  <section class="stack" aria-labelledby="why-title">
+    <h2 id="why-title"><span lang="en">Why let the pack draw the block again</span><span lang="zh-CN">为什么让光影自己再画一遍</span></h2>
+    <p lang="en" class="prose">A shader pack's vertex shaders may move vertices anywhere. Kappa draws the whole scene into the lower-left 75% and scales it up later (TAAU), with sub-pixel TAA jitter every frame. Working out where the block is with vanilla's matrices would miss where the pack actually drew it, and the sky would drift off the block. So the mod draws the block again with the vanilla entity render type: Iris swaps in the pack's own program, so the scaling and jitter happen as well. The pixels whose depth changed are exactly where the block is, without knowing what the pack did to the vertices.</p>
+<p lang="zh-CN" class="prose">光影的顶点着色器可以随意移动顶点。Kappa 先把整个场景画进左下角 75% 的区域，再放大回全屏（TAAU），每帧还有亚像素的 TAA 抖动。如果按原版矩阵自己算方块在哪，就会和光影实际画的位置对不上，天空会偏离方块。所以模组用原版的实体渲染类型把方块再画一遍：Iris 会把它换成光影自己的程序，缩放和抖动都照样发生。比较画前画后的深度，变了的像素就是方块真正所在的地方，不需要知道光影做了什么变换。</p>
+    <div class="pair">
+      <figure>
+        <img src="img/kappa/s5-holes-mask.png" alt="">
+        <figcaption lang="en">Kappa: the holes are in the lower-left 75% of the buffer.</figcaption>
+<figcaption lang="zh-CN">Kappa：找到的洞在缓冲左下角 75% 的区域里。</figcaption>
+      </figure>
+      <figure>
+        <img src="img/kappa/front.png" alt="">
+        <figcaption lang="en">After upscaling, Kappa's own sky is exactly in the window.</figcaption>
+<figcaption lang="zh-CN">放大之后，Kappa 自己的天空正好出现在窗的位置。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="stack prose" aria-labelledby="iris-title">
+    <h2 id="iris-title"><span lang="en">Two Iris 1.8 pitfalls</span><span lang="zh-CN">Iris 1.8 的两个坑</span></h2>
+    <ul class="plain" lang="en">
+      <li>While it renders the level, Iris skips every draw with a shader it does not know (<code>allowUnknownShaders</code> is off by default). The depth-copy and hole shaders are exempted with <code>SkipList.NONE_FORCE</code>.</li>
+      <li>Applying a shader Iris does not know binds the pack's framebuffer, and clearing it binds the main one. So the full-screen passes call <code>apply()</code> first, then bind their own framebuffer, then draw.</li>
+    </ul>
+    <ul class="plain" lang="zh-CN">
+      <li>Iris 在渲染世界期间会跳过它不认识的着色器（<code>allowUnknownShaders</code> 默认关闭）。复制深度和挖洞的着色器通过 <code>SkipList.NONE_FORCE</code> 豁免。</li>
+      <li>应用一个陌生着色器时，Iris 会切到光影的帧缓冲，清除时又切回主帧缓冲。所以全屏通道先 <code>apply()</code>，再绑定自己的帧缓冲，然后才绘制。</li>
+    </ul>
+  </section>
+
+  <section class="stack prose" aria-labelledby="run-title">
+    <h2 id="run-title"><span lang="en">Reproduce</span><span lang="zh-CN">重现</span></h2>
+    <p lang="en">On the <code>render-notes</code> branch, run <code>./gradlew runSmokeClient -PsmokeTag=bsl</code>. Screenshots go to <code>run/smoke/screenshots</code> and the buffers of each stage to <code>run/smoke/captures/&lt;tag&gt;</code>. To test a shader pack, put it into <code>run/smoke/shaderpacks</code> and enable it in <code>run/smoke/config/iris.properties</code>.</p>
+<p lang="zh-CN">在 <code>render-notes</code> 分支运行 <code>./gradlew runSmokeClient -PsmokeTag=bsl</code>。截图保存在 <code>run/smoke/screenshots</code>，各阶段的缓冲保存在 <code>run/smoke/captures/&lt;tag&gt;</code>。要测试某个光影包，把它放进 <code>run/smoke/shaderpacks</code>，再在 <code>run/smoke/config/iris.properties</code> 里启用它。</p>
+  </section>
+
+  <dialog class="zoom" id="zoom">
+    <figure>
+      <button type="button" id="zoom-close">Close</button>
+      <img id="zoom-img" alt="">
+      <figcaption id="zoom-cap"></figcaption>
+    </figure>
+  </dialog>
+</main>
+
+<script type="application/json" id="flow-vanilla-en">
+{
+  "lanes": [
+    {
+      "name": "Vanilla level",
+      "sub": "Minecraft renders the level as usual"
+    },
+    {
+      "name": "Sky cube",
+      "sub": "six 90° views of the sky, every frame"
+    },
+    {
+      "name": "Sky block",
+      "sub": "its block entity renderer"
+    },
+    {
+      "name": "Frame",
+      "sub": "what the player sees"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "sky",
+      "lane": 1,
+      "row": 2,
+      "kind": "pack",
+      "when": "renderSky",
+      "title": "Vanilla draws the sky",
+      "text": "The level's own sky pass, into the main target.",
+      "imgs": []
+    },
+    {
+      "id": "cube",
+      "lane": 2,
+      "row": 2,
+      "kind": "probe",
+      "when": "RenderLevelStageEvent AFTER_SKY",
+      "title": "Render the sky cube",
+      "text": "Vanilla's <code>renderSky</code> and <code>renderClouds</code> run six more times, looking down, up, north, south, west and east with a 90° square camera, each into its own 1024×1024 target.",
+      "imgs": [
+        {
+          "src": "img/noshader/n1-cube-up.png",
+          "caption": "up",
+          "size": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "src": "img/noshader/n1-cube-south.png",
+          "caption": "south",
+          "size": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "src": "img/noshader/n1-cube-down.png",
+          "caption": "down",
+          "size": [
+            1024,
+            1024
+          ]
+        }
+      ]
+    },
+    {
+      "id": "terrain",
+      "lane": 1,
+      "row": 3,
+      "kind": "pack",
+      "when": "chunks, entities",
+      "title": "Terrain and entities",
+      "text": "The sky block is invisible in the chunk mesh, so the room and the solid stone behind the window are drawn as usual.",
+      "imgs": []
+    },
+    {
+      "id": "faces",
+      "lane": 3,
+      "row": 3,
+      "kind": "probe",
+      "when": "block entities",
+      "title": "Draw the visible faces",
+      "text": "Each visible face looks up the cube by the direction from the eye, so it shows the sky that would be behind it. Faces against another sky block are skipped. The faces write depth, so what is behind them stays hidden.",
+      "imgs": []
+    },
+    {
+      "id": "final",
+      "lane": 4,
+      "row": 4,
+      "kind": "merge",
+      "when": "end of frame",
+      "title": "A window to the sky",
+      "text": "The stone behind the window is covered by the sky; the stone and glass in front of it still draw.",
+      "imgs": [
+        {
+          "src": "img/noshader/front.png",
+          "caption": "front"
+        },
+        {
+          "src": "img/noshader/side.png",
+          "caption": "side"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "sky",
+      "to": "cube",
+      "label": "right after",
+      "style": "depth"
+    },
+    {
+      "from": "sky",
+      "to": "terrain",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "cube",
+      "to": "faces",
+      "label": "six face textures",
+      "style": "depth"
+    },
+    {
+      "from": "terrain",
+      "to": "faces",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "faces",
+      "to": "final",
+      "label": "",
+      "style": "merge"
+    }
+  ]
+}
+</script>
+<script type="application/json" id="flow-bsl-en">
+{
+  "lanes": [
+    {
+      "name": "Shader pack (Iris)",
+      "sub": "BSL's own passes"
+    },
+    {
+      "name": "Sky block",
+      "sub": "what the mod does, at four moments"
+    },
+    {
+      "name": "Depth",
+      "sub": "main depth buffer"
+    },
+    {
+      "name": "colortex0 / frame",
+      "sub": "the pack's main colour buffer"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "skybasic",
+      "lane": 1,
+      "row": 2,
+      "kind": "pack",
+      "when": "gbuffers_skybasic / skytextured",
+      "title": "The pack draws its sky",
+      "text": "BSL draws its sky into colortex0, before any terrain.",
+      "imgs": []
+    },
+    {
+      "id": "snapshot",
+      "lane": 2,
+      "row": 2,
+      "kind": "probe",
+      "when": "1 · after the sky",
+      "title": "Sky snapshot",
+      "text": "Copy colortex0 while it holds only the pack's sky.",
+      "imgs": [
+        {
+          "src": "img/bsl/s1-sky-snapshot.png",
+          "caption": "snapshot"
+        }
+      ]
+    },
+    {
+      "id": "gbuf",
+      "lane": 1,
+      "row": 3,
+      "kind": "pack",
+      "when": "gbuffers_terrain …",
+      "title": "The pack draws the opaque world",
+      "text": "With a pack the sky block is a normal solid cube in the chunk mesh, so the buffers hold the block, not what is behind it, and it casts a shadow.",
+      "imgs": []
+    },
+    {
+      "id": "solidDepth",
+      "lane": 3,
+      "row": 3,
+      "kind": "depth",
+      "when": "before deferred",
+      "title": "A solid wall",
+      "text": "The window is a wall a few blocks away.",
+      "imgs": [
+        {
+          "src": "img/bsl/s2-depth-solid-block.png",
+          "caption": "depth"
+        }
+      ]
+    },
+    {
+      "id": "solidColor",
+      "lane": 4,
+      "row": 3,
+      "kind": "depth",
+      "when": "before deferred",
+      "title": "The block's texture",
+      "text": "colortex0 has the block, not the stone behind it.",
+      "imgs": [
+        {
+          "src": "img/bsl/s2-colortex0-solid-block.png",
+          "caption": "colortex0"
+        }
+      ]
+    },
+    {
+      "id": "find",
+      "lane": 2,
+      "row": 4,
+      "kind": "probe",
+      "when": "2 · Iris beginHand",
+      "title": "Find the holes",
+      "text": "Copy the depth (before), draw the blocks once more with the vanilla entity render type, which Iris swaps for the pack's own program, 1/4096 nearer the camera, and copy the depth again (after). Where before ≠ after is exactly where the pack drew the block.",
+      "imgs": [
+        {
+          "src": "img/bsl/s3-depth-before-redraw.png",
+          "caption": "before"
+        },
+        {
+          "src": "img/bsl/s4-depth-after-redraw.png",
+          "caption": "after"
+        },
+        {
+          "src": "img/bsl/s5-holes-mask.png",
+          "caption": "before ≠ after"
+        }
+      ]
+    },
+    {
+      "id": "farDepth",
+      "lane": 3,
+      "row": 5,
+      "kind": "depth",
+      "when": "2 · in the holes",
+      "title": "Depth → far",
+      "text": "The deferred passes take far pixels for sky.",
+      "imgs": [
+        {
+          "src": "img/bsl/s6-depth-holes.png",
+          "caption": "depth"
+        }
+      ]
+    },
+    {
+      "id": "skyColor",
+      "lane": 4,
+      "row": 5,
+      "kind": "depth",
+      "when": "2 · in the holes",
+      "title": "colortex0 → snapshot",
+      "text": "For packs like BSL, which keep the gbuffer colour as their sky.",
+      "imgs": [
+        {
+          "src": "img/bsl/s6-colortex0-holes.png",
+          "caption": "colortex0"
+        }
+      ]
+    },
+    {
+      "id": "deferred",
+      "lane": 1,
+      "row": 6,
+      "kind": "pack",
+      "when": "deferred",
+      "title": "Deferred passes",
+      "text": "Lighting, shadows, sky. The holes are at the far depth, so they become sky.",
+      "imgs": []
+    },
+    {
+      "id": "afterDeferred",
+      "lane": 4,
+      "row": 6,
+      "kind": "merge",
+      "when": "after deferred",
+      "title": "Sky in the window",
+      "text": "BSL lights the room and keeps its sky in the window.",
+      "imgs": [
+        {
+          "src": "img/bsl/s7-colortex0-after-deferred.png",
+          "caption": "colortex0"
+        }
+      ]
+    },
+    {
+      "id": "restore",
+      "lane": 2,
+      "row": 7,
+      "kind": "probe",
+      "when": "3 · Iris beginTranslucents",
+      "title": "Depth back",
+      "text": "Write the block's depth (after) back into the holes, so water and glass behind the window fail the depth test and those in front still draw.",
+      "imgs": []
+    },
+    {
+      "id": "restoredDepth",
+      "lane": 3,
+      "row": 7,
+      "kind": "depth",
+      "when": "3",
+      "title": "A wall again",
+      "text": "",
+      "imgs": [
+        {
+          "src": "img/bsl/s8-depth-restored.png",
+          "caption": "depth"
+        }
+      ]
+    },
+    {
+      "id": "translucent",
+      "lane": 1,
+      "row": 8,
+      "kind": "pack",
+      "when": "gbuffers_water …",
+      "title": "Translucent surfaces",
+      "text": "The glass in front of the window draws and writes its depth.",
+      "imgs": []
+    },
+    {
+      "id": "glassDepth",
+      "lane": 3,
+      "row": 8,
+      "kind": "depth",
+      "when": "after translucents",
+      "title": "Glass has depth",
+      "text": "",
+      "imgs": [
+        {
+          "src": "img/bsl/s9-depth-after-translucents.png",
+          "caption": "depth"
+        }
+      ]
+    },
+    {
+      "id": "far",
+      "lane": 2,
+      "row": 9,
+      "kind": "probe",
+      "when": "4 · Iris finalizeLevelRendering",
+      "title": "Sky again",
+      "text": "Where the depth still equals after (nothing translucent in front), far again, so the pack's sky, fog, clouds and TAA treat it as sky.",
+      "imgs": []
+    },
+    {
+      "id": "farAgain",
+      "lane": 3,
+      "row": 9,
+      "kind": "depth",
+      "when": "4",
+      "title": "Far, except the glass",
+      "text": "",
+      "imgs": [
+        {
+          "src": "img/bsl/s10-depth-far-again.png",
+          "caption": "depth"
+        }
+      ]
+    },
+    {
+      "id": "composite",
+      "lane": 1,
+      "row": 10,
+      "kind": "pack",
+      "when": "composite, final",
+      "title": "Post-processing",
+      "text": "Fog, clouds, bloom, TAA.",
+      "imgs": []
+    },
+    {
+      "id": "final",
+      "lane": 4,
+      "row": 10,
+      "kind": "merge",
+      "when": "end of frame",
+      "title": "A window to BSL's sky",
+      "text": "Stone behind the window, yet the pack's own sky shows in it.",
+      "imgs": [
+        {
+          "src": "img/bsl/front.png",
+          "caption": "front"
+        },
+        {
+          "src": "img/bsl/side.png",
+          "caption": "side"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "skybasic",
+      "to": "snapshot",
+      "label": "copy",
+      "style": "depth"
+    },
+    {
+      "from": "skybasic",
+      "to": "gbuf",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "gbuf",
+      "to": "solidDepth",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "solidDepth",
+      "to": "solidColor",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "gbuf",
+      "to": "find",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "find",
+      "to": "farDepth",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "snapshot",
+      "to": "skyColor",
+      "label": "snapshot",
+      "style": "depth"
+    },
+    {
+      "from": "find",
+      "to": "skyColor",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "find",
+      "to": "deferred",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "deferred",
+      "to": "afterDeferred",
+      "label": "far = sky",
+      "style": "merge"
+    },
+    {
+      "from": "deferred",
+      "to": "restore",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "restore",
+      "to": "restoredDepth",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "restore",
+      "to": "translucent",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "translucent",
+      "to": "glassDepth",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "translucent",
+      "to": "far",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "far",
+      "to": "farAgain",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "far",
+      "to": "composite",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "composite",
+      "to": "final",
+      "label": "",
+      "style": "merge"
+    }
+  ]
+}
+</script>
+<script type="application/json" id="flow-kappa-en">
+{
+  "lanes": [
+    {
+      "name": "Shader pack (Iris)",
+      "sub": "Kappa's own passes"
+    },
+    {
+      "name": "Sky block",
+      "sub": "what the mod does, at four moments"
+    },
+    {
+      "name": "Depth",
+      "sub": "main depth buffer"
+    },
+    {
+      "name": "colortex0 / frame",
+      "sub": "the pack's main colour buffer"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "skybasic",
+      "lane": 1,
+      "row": 2,
+      "kind": "pack",
+      "when": "gbuffers_skybasic / skytextured",
+      "title": "The pack draws its sky",
+      "text": "Kappa draws nothing into colortex0 here; it computes its whole sky later, in deferred.",
+      "imgs": []
+    },
+    {
+      "id": "snapshot",
+      "lane": 2,
+      "row": 2,
+      "kind": "probe",
+      "when": "1 · after the sky",
+      "title": "Sky snapshot",
+      "text": "Copy colortex0 while it holds only the pack's sky.",
+      "imgs": [
+        {
+          "src": "img/kappa/s1-sky-snapshot.png",
+          "caption": "snapshot (empty)"
+        }
+      ]
+    },
+    {
+      "id": "gbuf",
+      "lane": 1,
+      "row": 3,
+      "kind": "pack",
+      "when": "gbuffers_terrain …",
+      "title": "The pack draws the opaque world",
+      "text": "With a pack the sky block is a normal solid cube in the chunk mesh, so the buffers hold the block, not what is behind it, and it casts a shadow. Kappa renders the whole scene into the lower-left 75% (dashed box) and upscales later.",
+      "imgs": []
+    },
+    {
+      "id": "solidDepth",
+      "lane": 3,
+      "row": 3,
+      "kind": "depth",
+      "when": "before deferred",
+      "title": "A solid wall",
+      "text": "The window is a wall a few blocks away.",
+      "imgs": [
+        {
+          "src": "img/kappa/s2-depth-solid-block.png",
+          "caption": "depth",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        }
+      ]
+    },
+    {
+      "id": "solidColor",
+      "lane": 4,
+      "row": 3,
+      "kind": "depth",
+      "when": "before deferred",
+      "title": "The block's texture",
+      "text": "colortex0 has the block, not the stone behind it.",
+      "imgs": [
+        {
+          "src": "img/kappa/s2-colortex0-solid-block.png",
+          "caption": "colortex0",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        }
+      ]
+    },
+    {
+      "id": "find",
+      "lane": 2,
+      "row": 4,
+      "kind": "probe",
+      "when": "2 · Iris beginHand",
+      "title": "Find the holes",
+      "text": "Copy the depth (before), draw the blocks once more with the vanilla entity render type, which Iris swaps for the pack's own program, 1/4096 nearer the camera, and copy the depth again (after). Where before ≠ after is exactly where the pack drew the block, even in Kappa's scaled region.",
+      "imgs": [
+        {
+          "src": "img/kappa/s3-depth-before-redraw.png",
+          "caption": "before",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        },
+        {
+          "src": "img/kappa/s4-depth-after-redraw.png",
+          "caption": "after",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        },
+        {
+          "src": "img/kappa/s5-holes-mask.png",
+          "caption": "before ≠ after",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        }
+      ]
+    },
+    {
+      "id": "farDepth",
+      "lane": 3,
+      "row": 5,
+      "kind": "depth",
+      "when": "2 · in the holes",
+      "title": "Depth → far",
+      "text": "The deferred passes take far pixels for sky.",
+      "imgs": [
+        {
+          "src": "img/kappa/s6-depth-holes.png",
+          "caption": "depth",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        }
+      ]
+    },
+    {
+      "id": "skyColor",
+      "lane": 4,
+      "row": 5,
+      "kind": "depth",
+      "when": "2 · in the holes",
+      "title": "colortex0 → snapshot",
+      "text": "Kappa's snapshot is empty, which does not matter: it draws its sky in deferred.",
+      "imgs": [
+        {
+          "src": "img/kappa/s6-colortex0-holes.png",
+          "caption": "colortex0",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        }
+      ]
+    },
+    {
+      "id": "deferred",
+      "lane": 1,
+      "row": 6,
+      "kind": "pack",
+      "when": "deferred",
+      "title": "Deferred passes",
+      "text": "Lighting, shadows, sky. The holes are at the far depth, so they become sky.",
+      "imgs": []
+    },
+    {
+      "id": "afterDeferred",
+      "lane": 4,
+      "row": 6,
+      "kind": "merge",
+      "when": "after deferred",
+      "title": "Sky in the window",
+      "text": "Kappa's colortex0 after deferred (its own buffer layout).",
+      "imgs": [
+        {
+          "src": "img/kappa/s7-colortex0-after-deferred.png",
+          "caption": "colortex0",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        }
+      ]
+    },
+    {
+      "id": "restore",
+      "lane": 2,
+      "row": 7,
+      "kind": "probe",
+      "when": "3 · Iris beginTranslucents",
+      "title": "Depth back",
+      "text": "Write the block's depth (after) back into the holes, so water and glass behind the window fail the depth test and those in front still draw.",
+      "imgs": []
+    },
+    {
+      "id": "restoredDepth",
+      "lane": 3,
+      "row": 7,
+      "kind": "depth",
+      "when": "3",
+      "title": "A wall again",
+      "text": "",
+      "imgs": [
+        {
+          "src": "img/kappa/s8-depth-restored.png",
+          "caption": "depth",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        }
+      ]
+    },
+    {
+      "id": "translucent",
+      "lane": 1,
+      "row": 8,
+      "kind": "pack",
+      "when": "gbuffers_water …",
+      "title": "Translucent surfaces",
+      "text": "The glass in front of the window draws and writes its depth.",
+      "imgs": []
+    },
+    {
+      "id": "glassDepth",
+      "lane": 3,
+      "row": 8,
+      "kind": "depth",
+      "when": "after translucents",
+      "title": "Glass has depth",
+      "text": "",
+      "imgs": [
+        {
+          "src": "img/kappa/s9-depth-after-translucents.png",
+          "caption": "depth",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        }
+      ]
+    },
+    {
+      "id": "far",
+      "lane": 2,
+      "row": 9,
+      "kind": "probe",
+      "when": "4 · Iris finalizeLevelRendering",
+      "title": "Sky again",
+      "text": "Where the depth still equals after (nothing translucent in front), far again, so the pack's sky, fog, clouds and TAA treat it as sky.",
+      "imgs": []
+    },
+    {
+      "id": "farAgain",
+      "lane": 3,
+      "row": 9,
+      "kind": "depth",
+      "when": "4",
+      "title": "Far, except the glass",
+      "text": "",
+      "imgs": [
+        {
+          "src": "img/kappa/s10-depth-far-again.png",
+          "caption": "depth",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        }
+      ]
+    },
+    {
+      "id": "composite",
+      "lane": 1,
+      "row": 10,
+      "kind": "pack",
+      "when": "composite, final",
+      "title": "Post-processing",
+      "text": "Fog, clouds, bloom, TAA, and Kappa's upscale.",
+      "imgs": []
+    },
+    {
+      "id": "final",
+      "lane": 4,
+      "row": 10,
+      "kind": "merge",
+      "when": "end of frame",
+      "title": "A window to Kappa's sky",
+      "text": "Stone behind the window, yet the pack's own sky shows in it.",
+      "imgs": [
+        {
+          "src": "img/kappa/front.png",
+          "caption": "front"
+        },
+        {
+          "src": "img/kappa/side.png",
+          "caption": "side"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "skybasic",
+      "to": "snapshot",
+      "label": "copy",
+      "style": "depth"
+    },
+    {
+      "from": "skybasic",
+      "to": "gbuf",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "gbuf",
+      "to": "solidDepth",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "solidDepth",
+      "to": "solidColor",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "gbuf",
+      "to": "find",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "find",
+      "to": "farDepth",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "snapshot",
+      "to": "skyColor",
+      "label": "snapshot",
+      "style": "depth"
+    },
+    {
+      "from": "find",
+      "to": "skyColor",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "find",
+      "to": "deferred",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "deferred",
+      "to": "afterDeferred",
+      "label": "far = sky",
+      "style": "merge"
+    },
+    {
+      "from": "deferred",
+      "to": "restore",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "restore",
+      "to": "restoredDepth",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "restore",
+      "to": "translucent",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "translucent",
+      "to": "glassDepth",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "translucent",
+      "to": "far",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "far",
+      "to": "farAgain",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "far",
+      "to": "composite",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "composite",
+      "to": "final",
+      "label": "",
+      "style": "merge"
+    }
+  ]
+}
+</script>
+<script type="application/json" id="flow-vanilla-zh">
+{
+  "lanes": [
+    {
+      "name": "原版渲染",
+      "sub": "Minecraft 照常渲染世界"
+    },
+    {
+      "name": "天空立方体",
+      "sub": "每帧拍六张 90° 的天空"
+    },
+    {
+      "name": "天空方块",
+      "sub": "方块实体渲染器"
+    },
+    {
+      "name": "画面",
+      "sub": "玩家看到的"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "sky",
+      "lane": 1,
+      "row": 2,
+      "kind": "pack",
+      "when": "renderSky",
+      "title": "原版画天空",
+      "text": "世界自己的天空，画进主缓冲。",
+      "imgs": []
+    },
+    {
+      "id": "cube",
+      "lane": 2,
+      "row": 2,
+      "kind": "probe",
+      "when": "RenderLevelStageEvent AFTER_SKY",
+      "title": "拍天空立方体",
+      "text": "再调用六次原版的 <code>renderSky</code> 和 <code>renderClouds</code>，用 90° 的正方形相机分别朝下、上、北、南、西、东看，各画进一张 1024×1024 的贴图。",
+      "imgs": [
+        {
+          "src": "img/noshader/n1-cube-up.png",
+          "caption": "上",
+          "size": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "src": "img/noshader/n1-cube-south.png",
+          "caption": "南",
+          "size": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "src": "img/noshader/n1-cube-down.png",
+          "caption": "下",
+          "size": [
+            1024,
+            1024
+          ]
+        }
+      ]
+    },
+    {
+      "id": "terrain",
+      "lane": 1,
+      "row": 3,
+      "kind": "pack",
+      "when": "区块、实体",
+      "title": "地形和实体",
+      "text": "天空方块在区块里是隐形的，房间和窗后的实心石头照常画出。",
+      "imgs": []
+    },
+    {
+      "id": "faces",
+      "lane": 3,
+      "row": 3,
+      "kind": "probe",
+      "when": "方块实体",
+      "title": "画出露在外面的面",
+      "text": "每个露在外面的面，按从眼睛看过去的方向去立方体里取色，所以显示的正是它后面应有的天空。贴着另一个天空方块的面不画。面会写入深度，后面的东西被挡住。",
+      "imgs": []
+    },
+    {
+      "id": "final",
+      "lane": 4,
+      "row": 4,
+      "kind": "merge",
+      "when": "帧末",
+      "title": "通向天空的窗",
+      "text": "窗后的石头被天空盖住；窗前的石头和玻璃照常显示。",
+      "imgs": [
+        {
+          "src": "img/noshader/front.png",
+          "caption": "正面"
+        },
+        {
+          "src": "img/noshader/side.png",
+          "caption": "侧面"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "sky",
+      "to": "cube",
+      "label": "紧接着",
+      "style": "depth"
+    },
+    {
+      "from": "sky",
+      "to": "terrain",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "cube",
+      "to": "faces",
+      "label": "六张面贴图",
+      "style": "depth"
+    },
+    {
+      "from": "terrain",
+      "to": "faces",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "faces",
+      "to": "final",
+      "label": "",
+      "style": "merge"
+    }
+  ]
+}
+</script>
+<script type="application/json" id="flow-bsl-zh">
+{
+  "lanes": [
+    {
+      "name": "光影（Iris）",
+      "sub": "BSL 自己的步骤"
+    },
+    {
+      "name": "天空方块",
+      "sub": "模组在四个时刻做的事"
+    },
+    {
+      "name": "深度",
+      "sub": "主深度缓冲"
+    },
+    {
+      "name": "colortex0 / 画面",
+      "sub": "光影的主颜色缓冲"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "skybasic",
+      "lane": 1,
+      "row": 2,
+      "kind": "pack",
+      "when": "gbuffers_skybasic / skytextured",
+      "title": "光影画天空",
+      "text": "BSL 在画地形之前，把天空画进 colortex0。",
+      "imgs": []
+    },
+    {
+      "id": "snapshot",
+      "lane": 2,
+      "row": 2,
+      "kind": "probe",
+      "when": "1 · 天空之后",
+      "title": "天空照",
+      "text": "趁 colortex0 里只有天空，复制一份。",
+      "imgs": [
+        {
+          "src": "img/bsl/s1-sky-snapshot.png",
+          "caption": "天空照"
+        }
+      ]
+    },
+    {
+      "id": "gbuf",
+      "lane": 1,
+      "row": 3,
+      "kind": "pack",
+      "when": "gbuffers_terrain …",
+      "title": "光影画不透明世界",
+      "text": "开光影时，天空方块在区块里是普通的实心方块，所以缓冲里是方块本身而不是它后面的东西，方块也会投影。",
+      "imgs": []
+    },
+    {
+      "id": "solidDepth",
+      "lane": 3,
+      "row": 3,
+      "kind": "depth",
+      "when": "deferred 之前",
+      "title": "一面实心墙",
+      "text": "窗只是几格外的一面墙。",
+      "imgs": [
+        {
+          "src": "img/bsl/s2-depth-solid-block.png",
+          "caption": "深度"
+        }
+      ]
+    },
+    {
+      "id": "solidColor",
+      "lane": 4,
+      "row": 3,
+      "kind": "depth",
+      "when": "deferred 之前",
+      "title": "方块的贴图",
+      "text": "colortex0 里是方块，不是它后面的石头。",
+      "imgs": [
+        {
+          "src": "img/bsl/s2-colortex0-solid-block.png",
+          "caption": "colortex0"
+        }
+      ]
+    },
+    {
+      "id": "find",
+      "lane": 2,
+      "row": 4,
+      "kind": "probe",
+      "when": "2 · Iris beginHand",
+      "title": "找出洞",
+      "text": "复制深度（前）；用原版实体渲染类型把方块再画一遍，Iris 会换成光影自己的程序，方块靠近相机 1/4096；再复制深度（后）。前 ≠ 后的像素，正是光影画出方块的地方。",
+      "imgs": [
+        {
+          "src": "img/bsl/s3-depth-before-redraw.png",
+          "caption": "前"
+        },
+        {
+          "src": "img/bsl/s4-depth-after-redraw.png",
+          "caption": "后"
+        },
+        {
+          "src": "img/bsl/s5-holes-mask.png",
+          "caption": "前 ≠ 后"
+        }
+      ]
+    },
+    {
+      "id": "farDepth",
+      "lane": 3,
+      "row": 5,
+      "kind": "depth",
+      "when": "2 · 洞里",
+      "title": "深度 → 最远",
+      "text": "deferred 把最远的像素当作天空。",
+      "imgs": [
+        {
+          "src": "img/bsl/s6-depth-holes.png",
+          "caption": "深度"
+        }
+      ]
+    },
+    {
+      "id": "skyColor",
+      "lane": 4,
+      "row": 5,
+      "kind": "depth",
+      "when": "2 · 洞里",
+      "title": "colortex0 → 天空照",
+      "text": "给 BSL 这类沿用缓冲颜色作为天空的光影用。",
+      "imgs": [
+        {
+          "src": "img/bsl/s6-colortex0-holes.png",
+          "caption": "colortex0"
+        }
+      ]
+    },
+    {
+      "id": "deferred",
+      "lane": 1,
+      "row": 6,
+      "kind": "pack",
+      "when": "deferred",
+      "title": "deferred 通道",
+      "text": "光照、阴影、天空。洞的深度是最远，于是变成天空。",
+      "imgs": []
+    },
+    {
+      "id": "afterDeferred",
+      "lane": 4,
+      "row": 6,
+      "kind": "merge",
+      "when": "deferred 之后",
+      "title": "窗里有了天空",
+      "text": "BSL 照亮了房间，窗里保留着它的天空。",
+      "imgs": [
+        {
+          "src": "img/bsl/s7-colortex0-after-deferred.png",
+          "caption": "colortex0"
+        }
+      ]
+    },
+    {
+      "id": "restore",
+      "lane": 2,
+      "row": 7,
+      "kind": "probe",
+      "when": "3 · Iris beginTranslucents",
+      "title": "深度还原",
+      "text": "把方块的深度（后）写回洞里，窗后的水和玻璃深度测试失败、画不出来，窗前的照常画。",
+      "imgs": []
+    },
+    {
+      "id": "restoredDepth",
+      "lane": 3,
+      "row": 7,
+      "kind": "depth",
+      "when": "3",
+      "title": "又是一面墙",
+      "text": "",
+      "imgs": [
+        {
+          "src": "img/bsl/s8-depth-restored.png",
+          "caption": "深度"
+        }
+      ]
+    },
+    {
+      "id": "translucent",
+      "lane": 1,
+      "row": 8,
+      "kind": "pack",
+      "when": "gbuffers_water …",
+      "title": "半透明物体",
+      "text": "窗前的玻璃画出来，并写入深度。",
+      "imgs": []
+    },
+    {
+      "id": "glassDepth",
+      "lane": 3,
+      "row": 8,
+      "kind": "depth",
+      "when": "半透明之后",
+      "title": "玻璃有了深度",
+      "text": "",
+      "imgs": [
+        {
+          "src": "img/bsl/s9-depth-after-translucents.png",
+          "caption": "深度"
+        }
+      ]
+    },
+    {
+      "id": "far",
+      "lane": 2,
+      "row": 9,
+      "kind": "probe",
+      "when": "4 · Iris finalizeLevelRendering",
+      "title": "再变成天空",
+      "text": "深度仍等于“后”的像素（前面没有半透明物体），再设为最远，让光影的天空、雾、云和 TAA 都把它当作天空。",
+      "imgs": []
+    },
+    {
+      "id": "farAgain",
+      "lane": 3,
+      "row": 9,
+      "kind": "depth",
+      "when": "4",
+      "title": "除了玻璃都是最远",
+      "text": "",
+      "imgs": [
+        {
+          "src": "img/bsl/s10-depth-far-again.png",
+          "caption": "深度"
+        }
+      ]
+    },
+    {
+      "id": "composite",
+      "lane": 1,
+      "row": 10,
+      "kind": "pack",
+      "when": "composite, final",
+      "title": "后处理",
+      "text": "雾、云、泛光、TAA。",
+      "imgs": []
+    },
+    {
+      "id": "final",
+      "lane": 4,
+      "row": 10,
+      "kind": "merge",
+      "when": "帧末",
+      "title": "通向 BSL 天空的窗",
+      "text": "窗后是石头，窗里却是光影自己的天空。",
+      "imgs": [
+        {
+          "src": "img/bsl/front.png",
+          "caption": "正面"
+        },
+        {
+          "src": "img/bsl/side.png",
+          "caption": "侧面"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "skybasic",
+      "to": "snapshot",
+      "label": "复制",
+      "style": "depth"
+    },
+    {
+      "from": "skybasic",
+      "to": "gbuf",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "gbuf",
+      "to": "solidDepth",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "solidDepth",
+      "to": "solidColor",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "gbuf",
+      "to": "find",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "find",
+      "to": "farDepth",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "snapshot",
+      "to": "skyColor",
+      "label": "天空照",
+      "style": "depth"
+    },
+    {
+      "from": "find",
+      "to": "skyColor",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "find",
+      "to": "deferred",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "deferred",
+      "to": "afterDeferred",
+      "label": "最远 = 天空",
+      "style": "merge"
+    },
+    {
+      "from": "deferred",
+      "to": "restore",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "restore",
+      "to": "restoredDepth",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "restore",
+      "to": "translucent",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "translucent",
+      "to": "glassDepth",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "translucent",
+      "to": "far",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "far",
+      "to": "farAgain",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "far",
+      "to": "composite",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "composite",
+      "to": "final",
+      "label": "",
+      "style": "merge"
+    }
+  ]
+}
+</script>
+<script type="application/json" id="flow-kappa-zh">
+{
+  "lanes": [
+    {
+      "name": "光影（Iris）",
+      "sub": "Kappa 自己的步骤"
+    },
+    {
+      "name": "天空方块",
+      "sub": "模组在四个时刻做的事"
+    },
+    {
+      "name": "深度",
+      "sub": "主深度缓冲"
+    },
+    {
+      "name": "colortex0 / 画面",
+      "sub": "光影的主颜色缓冲"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "skybasic",
+      "lane": 1,
+      "row": 2,
+      "kind": "pack",
+      "when": "gbuffers_skybasic / skytextured",
+      "title": "光影画天空",
+      "text": "Kappa 这里不往 colortex0 写任何东西，它的天空全部在 deferred 里计算。",
+      "imgs": []
+    },
+    {
+      "id": "snapshot",
+      "lane": 2,
+      "row": 2,
+      "kind": "probe",
+      "when": "1 · 天空之后",
+      "title": "天空照",
+      "text": "趁 colortex0 里只有天空，复制一份。",
+      "imgs": [
+        {
+          "src": "img/kappa/s1-sky-snapshot.png",
+          "caption": "天空照（空）"
+        }
+      ]
+    },
+    {
+      "id": "gbuf",
+      "lane": 1,
+      "row": 3,
+      "kind": "pack",
+      "when": "gbuffers_terrain …",
+      "title": "光影画不透明世界",
+      "text": "开光影时，天空方块在区块里是普通的实心方块，所以缓冲里是方块本身而不是它后面的东西，方块也会投影。Kappa 把整个场景画进左下角 75%（虚线框），之后再放大。",
+      "imgs": []
+    },
+    {
+      "id": "solidDepth",
+      "lane": 3,
+      "row": 3,
+      "kind": "depth",
+      "when": "deferred 之前",
+      "title": "一面实心墙",
+      "text": "窗只是几格外的一面墙。",
+      "imgs": [
+        {
+          "src": "img/kappa/s2-depth-solid-block.png",
+          "caption": "深度",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        }
+      ]
+    },
+    {
+      "id": "solidColor",
+      "lane": 4,
+      "row": 3,
+      "kind": "depth",
+      "when": "deferred 之前",
+      "title": "方块的贴图",
+      "text": "colortex0 里是方块，不是它后面的石头。",
+      "imgs": [
+        {
+          "src": "img/kappa/s2-colortex0-solid-block.png",
+          "caption": "colortex0",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        }
+      ]
+    },
+    {
+      "id": "find",
+      "lane": 2,
+      "row": 4,
+      "kind": "probe",
+      "when": "2 · Iris beginHand",
+      "title": "找出洞",
+      "text": "复制深度（前）；用原版实体渲染类型把方块再画一遍，Iris 会换成光影自己的程序，方块靠近相机 1/4096；再复制深度（后）。前 ≠ 后的像素，正是光影画出方块的地方，在 Kappa 缩小的区域里也一样。",
+      "imgs": [
+        {
+          "src": "img/kappa/s3-depth-before-redraw.png",
+          "caption": "前",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        },
+        {
+          "src": "img/kappa/s4-depth-after-redraw.png",
+          "caption": "后",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        },
+        {
+          "src": "img/kappa/s5-holes-mask.png",
+          "caption": "前 ≠ 后",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        }
+      ]
+    },
+    {
+      "id": "farDepth",
+      "lane": 3,
+      "row": 5,
+      "kind": "depth",
+      "when": "2 · 洞里",
+      "title": "深度 → 最远",
+      "text": "deferred 把最远的像素当作天空。",
+      "imgs": [
+        {
+          "src": "img/kappa/s6-depth-holes.png",
+          "caption": "深度",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        }
+      ]
+    },
+    {
+      "id": "skyColor",
+      "lane": 4,
+      "row": 5,
+      "kind": "depth",
+      "when": "2 · 洞里",
+      "title": "colortex0 → 天空照",
+      "text": "Kappa 的天空照是空的，没关系：它在 deferred 里自己画天空。",
+      "imgs": [
+        {
+          "src": "img/kappa/s6-colortex0-holes.png",
+          "caption": "colortex0",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        }
+      ]
+    },
+    {
+      "id": "deferred",
+      "lane": 1,
+      "row": 6,
+      "kind": "pack",
+      "when": "deferred",
+      "title": "deferred 通道",
+      "text": "光照、阴影、天空。洞的深度是最远，于是变成天空。",
+      "imgs": []
+    },
+    {
+      "id": "afterDeferred",
+      "lane": 4,
+      "row": 6,
+      "kind": "merge",
+      "when": "deferred 之后",
+      "title": "窗里有了天空",
+      "text": "deferred 之后 Kappa 的 colortex0（它自己的缓冲布局）。",
+      "imgs": [
+        {
+          "src": "img/kappa/s7-colortex0-after-deferred.png",
+          "caption": "colortex0",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        }
+      ]
+    },
+    {
+      "id": "restore",
+      "lane": 2,
+      "row": 7,
+      "kind": "probe",
+      "when": "3 · Iris beginTranslucents",
+      "title": "深度还原",
+      "text": "把方块的深度（后）写回洞里，窗后的水和玻璃深度测试失败、画不出来，窗前的照常画。",
+      "imgs": []
+    },
+    {
+      "id": "restoredDepth",
+      "lane": 3,
+      "row": 7,
+      "kind": "depth",
+      "when": "3",
+      "title": "又是一面墙",
+      "text": "",
+      "imgs": [
+        {
+          "src": "img/kappa/s8-depth-restored.png",
+          "caption": "深度",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        }
+      ]
+    },
+    {
+      "id": "translucent",
+      "lane": 1,
+      "row": 8,
+      "kind": "pack",
+      "when": "gbuffers_water …",
+      "title": "半透明物体",
+      "text": "窗前的玻璃画出来，并写入深度。",
+      "imgs": []
+    },
+    {
+      "id": "glassDepth",
+      "lane": 3,
+      "row": 8,
+      "kind": "depth",
+      "when": "半透明之后",
+      "title": "玻璃有了深度",
+      "text": "",
+      "imgs": [
+        {
+          "src": "img/kappa/s9-depth-after-translucents.png",
+          "caption": "深度",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        }
+      ]
+    },
+    {
+      "id": "far",
+      "lane": 2,
+      "row": 9,
+      "kind": "probe",
+      "when": "4 · Iris finalizeLevelRendering",
+      "title": "再变成天空",
+      "text": "深度仍等于“后”的像素（前面没有半透明物体），再设为最远，让光影的天空、雾、云和 TAA 都把它当作天空。",
+      "imgs": []
+    },
+    {
+      "id": "farAgain",
+      "lane": 3,
+      "row": 9,
+      "kind": "depth",
+      "when": "4",
+      "title": "除了玻璃都是最远",
+      "text": "",
+      "imgs": [
+        {
+          "src": "img/kappa/s10-depth-far-again.png",
+          "caption": "深度",
+          "box": [
+            0,
+            120,
+            640.5,
+            360
+          ]
+        }
+      ]
+    },
+    {
+      "id": "composite",
+      "lane": 1,
+      "row": 10,
+      "kind": "pack",
+      "when": "composite, final",
+      "title": "后处理",
+      "text": "雾、云、泛光、TAA，以及 Kappa 的放大。",
+      "imgs": []
+    },
+    {
+      "id": "final",
+      "lane": 4,
+      "row": 10,
+      "kind": "merge",
+      "when": "帧末",
+      "title": "通向 Kappa 天空的窗",
+      "text": "窗后是石头，窗里却是光影自己的天空。",
+      "imgs": [
+        {
+          "src": "img/kappa/front.png",
+          "caption": "正面"
+        },
+        {
+          "src": "img/kappa/side.png",
+          "caption": "侧面"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "skybasic",
+      "to": "snapshot",
+      "label": "复制",
+      "style": "depth"
+    },
+    {
+      "from": "skybasic",
+      "to": "gbuf",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "gbuf",
+      "to": "solidDepth",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "solidDepth",
+      "to": "solidColor",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "gbuf",
+      "to": "find",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "find",
+      "to": "farDepth",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "snapshot",
+      "to": "skyColor",
+      "label": "天空照",
+      "style": "depth"
+    },
+    {
+      "from": "find",
+      "to": "skyColor",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "find",
+      "to": "deferred",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "deferred",
+      "to": "afterDeferred",
+      "label": "最远 = 天空",
+      "style": "merge"
+    },
+    {
+      "from": "deferred",
+      "to": "restore",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "restore",
+      "to": "restoredDepth",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "restore",
+      "to": "translucent",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "translucent",
+      "to": "glassDepth",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "translucent",
+      "to": "far",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "far",
+      "to": "farAgain",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "far",
+      "to": "composite",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "composite",
+      "to": "final",
+      "label": "",
+      "style": "merge"
+    }
+  ]
+}
+</script>
+<script>
+(function () {
+  const flow = document.getElementById("flow");
+  const svg = document.getElementById("edges");
+  const LANE_BG = ["--lane-a", "--lane-b", "--lane-c", "--lane-d"];
+  const COLOR = { pack: "var(--pack)", depth: "var(--depth)", probe: "var(--probe)", merge: "var(--merge)" };
+  const NS = "http://www.w3.org/2000/svg";
+
+  const VARIANTS = [
+    { id: "vanilla", label: { en: "No shader pack", zh: "不开光影" } },
+    { id: "bsl", label: { en: "Shader pack (BSL)", zh: "普通光影（BSL）" } },
+    { id: "kappa", label: { en: "Render-scaled pack (Kappa)", zh: "降分辨率光影（Kappa）" } },
+  ];
+  const DEFAULT = "bsl";
+  const TEXT = {
+    en: { zoomClose: "Close", invalid: " is not valid JSON: " },
+    zh: { zoomClose: "关闭", invalid: " 的数据不是合法的 JSON：" },
+  };
+  let lang = "en";
+  try { lang = localStorage.getItem("sky-docs-lang") || ""; } catch (e) { lang = ""; }
+  if (lang !== "en" && lang !== "zh") lang = (navigator.language || "").toLowerCase().startsWith("zh") ? "zh" : "en";
+  const loaded = {};     // id → 数据
+  let current = null;
+  let data = null;
+  const byId = {};
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function cleanRich(source) {
+    let out = "";
+    source.childNodes.forEach((n) => {
+      if (n.nodeType === Node.TEXT_NODE) out += escapeHtml(n.textContent);
+      else if (n.nodeName === "CODE") out += "<code>" + escapeHtml(n.textContent) + "</code>";
+      else if (n.nodeName === "BR") out += " ";
+      else if (n.nodeType === Node.ELEMENT_NODE) out += cleanRich(n);
+    });
+    return out;
+  }
+  function richFromString(s) {
+    const t = document.createElement("template");
+    t.innerHTML = s;
+    return cleanRich(t.content);
+  }
+
+  function el(tag, cls, text, rich) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (rich) e.innerHTML = richFromString(text);
+    else e.textContent = text;
+    return e;
+  }
+
+  function render() {
+    flow.querySelectorAll(".lane-bg, .lane-head, .node, .flow-empty").forEach((e) => e.remove());
+    Object.keys(byId).forEach((k) => delete byId[k]);
+    const lastRow = Math.max(2, ...data.nodes.map((n) => n.row));
+    data.lanes.forEach((lane, i) => {
+      const bg = document.createElement("div");
+      bg.className = "lane-bg";
+      bg.style.gridColumn = String(i + 1);
+      bg.style.gridRow = "1 / " + (lastRow + 1);
+      bg.style.background = "var(" + LANE_BG[i % LANE_BG.length] + ")";
+      flow.appendChild(bg);
+      const head = document.createElement("div");
+      head.className = "lane-head";
+      head.style.gridColumn = String(i + 1);
+      head.append(el("span", "", lane.name), el("small", "", lane.sub));
+      flow.appendChild(head);
+    });
+    data.nodes.forEach((n) => {
+      const node = document.createElement("article");
+      node.className = "node";
+      node.dataset.kind = n.kind;
+      node.style.gridColumn = String(n.lane);
+      node.style.gridRow = String(n.row);
+      node.append(el("div", "when", n.when), el("h3", "", n.title), el("p", "", n.text, true));
+      if (n.imgs && n.imgs.length) {
+        const imgs = document.createElement("div");
+        imgs.className = "imgs";
+        imgs.style.setProperty("--n", n.imgs.length);
+        n.imgs.forEach((im) => {
+          const fig = document.createElement("figure");
+          const img = document.createElement("img");
+          img.src = im.src;
+          img.alt = n.title + "：" + im.caption;
+          img.tabIndex = 0;
+          img.dataset.cap = n.title + " · " + im.caption;
+          let holder = img;
+          const [iw, ih] = im.size || [854, 480];
+          img.style.aspectRatio = iw + " / " + ih;
+          if (im.crop) {
+            const [x, y, w, h] = im.crop;
+            holder = document.createElement("div");
+            holder.className = "crop";
+            holder.style.aspectRatio = w + " / " + h;
+            img.style.width = (iw / w * 100) + "%";
+            img.style.left = (-x / w * 100) + "%";
+            img.style.top = (-y / h * 100) + "%";
+            holder.appendChild(img);
+          } else if (im.box) {
+            const [x, y, w, h] = im.box;
+            holder = document.createElement("div");
+            holder.className = "boxed";
+            const region = document.createElement("div");
+            region.className = "region";
+            region.style.left = (x / iw * 100) + "%";
+            region.style.top = (y / ih * 100) + "%";
+            region.style.width = (w / iw * 100) + "%";
+            region.style.height = (h / ih * 100) + "%";
+            holder.append(img, region);
+          }
+          const cap = document.createElement("figcaption");
+          cap.appendChild(el("span", "", im.caption));
+          if (im.crop) cap.append(lang === "zh" ? "（局部）" : " (detail)");
+          img.addEventListener("load", schedule);
+          fig.append(holder, cap);
+          imgs.appendChild(fig);
+        });
+        node.appendChild(imgs);
+      }
+      flow.appendChild(node);
+      byId[n.id] = node;
+    });
+    schedule();
+  }
+
+  function drawEdges() {
+    if (!data) return;
+    const box = flow.getBoundingClientRect();
+    svg.setAttribute("viewBox", "0 0 " + box.width + " " + box.height);
+    svg.innerHTML = "";
+    const defs = document.createElementNS(NS, "defs");
+    Object.keys(COLOR).forEach((k) => {
+      const m = document.createElementNS(NS, "marker");
+      m.setAttribute("id", "arrow-" + k);
+      m.setAttribute("viewBox", "0 0 10 10");
+      m.setAttribute("refX", "9"); m.setAttribute("refY", "5");
+      m.setAttribute("markerWidth", "7"); m.setAttribute("markerHeight", "7");
+      m.setAttribute("orient", "auto-start-reverse");
+      const p = document.createElementNS(NS, "path");
+      p.setAttribute("d", "M0,0 L10,5 L0,10 z");
+      p.setAttribute("fill", COLOR[k]);
+      m.appendChild(p);
+      defs.appendChild(m);
+    });
+    svg.appendChild(defs);
+    data.edges.forEach(({ from, to, label, style }) => {
+      const a = byId[from], b = byId[to];
+      if (!a || !b) return;
+      const kind = COLOR[style] ? style : "depth";
+      const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      const A = { l: ra.left - box.left, r: ra.right - box.left, t: ra.top - box.top, b: ra.bottom - box.top };
+      const B = { l: rb.left - box.left, r: rb.right - box.left, t: rb.top - box.top, b: rb.bottom - box.top };
+      let x1, y1, x2, y2, d;
+      if (A.b > B.t && B.b > A.t) {
+        const right = B.l >= A.r;
+        x1 = right ? A.r : A.l; y1 = Math.min(A.t + 40, A.b - 10);
+        x2 = right ? B.l : B.r; y2 = Math.min(B.t + 40, B.b - 10);
+        const k = (x2 - x1) / 2;
+        d = "M" + x1 + "," + y1 + " C" + (x1 + k) + "," + y1 + " " + (x2 - k) + "," + y2 + " " + x2 + "," + y2;
+      } else if (B.t >= A.b) {
+        x2 = (B.l + B.r) / 2; y2 = B.t; y1 = A.b;
+        x1 = (A.l + A.r) / 2;
+        if (Math.abs(x1 - x2) > 20) x1 = x2 > x1 ? A.r - 24 : A.l + 24;
+        const k = Math.max(30, (y2 - y1) / 2);
+        d = "M" + x1 + "," + y1 + " C" + x1 + "," + (y1 + k) + " " + x2 + "," + (y2 - k) + " " + x2 + "," + y2;
+      } else {
+        x1 = (A.l + A.r) / 2; y1 = A.t; x2 = (B.l + B.r) / 2; y2 = B.b;
+        d = "M" + x1 + "," + y1 + " C" + x1 + "," + (y1 - 40) + " " + x2 + "," + (y2 + 40) + " " + x2 + "," + y2;
+      }
+      const path = document.createElementNS(NS, "path");
+      path.setAttribute("d", d);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", COLOR[kind]);
+      path.setAttribute("stroke-width", "2");
+      if (kind === "probe") path.setAttribute("stroke-dasharray", "6 4");
+      path.setAttribute("marker-end", "url(#arrow-" + kind + ")");
+      svg.appendChild(path);
+      if (label) {
+        const mid = path.getPointAtLength(path.getTotalLength() / 2);
+        const t = document.createElementNS(NS, "text");
+        t.setAttribute("x", mid.x); t.setAttribute("y", mid.y + 4);
+        t.setAttribute("text-anchor", "middle");
+        t.setAttribute("fill", COLOR[kind]);
+        t.setAttribute("paint-order", "stroke");
+        t.setAttribute("stroke", "var(--surface)");
+        t.setAttribute("stroke-width", "5");
+        t.setAttribute("font-weight", "500");
+        t.textContent = label;
+        svg.appendChild(t);
+      }
+    });
+  }
+  let pending = 0;
+  function schedule() { cancelAnimationFrame(pending); pending = requestAnimationFrame(drawEdges); }
+  window.addEventListener("resize", schedule);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);
+  const dialog = document.getElementById("zoom");
+  const zImg = document.getElementById("zoom-img");
+  const zCap = document.getElementById("zoom-cap");
+  function open(img) {
+    zImg.src = img.src; zImg.alt = img.alt; zCap.textContent = img.dataset.cap || img.alt;
+    if (dialog.showModal) dialog.showModal();
+  }
+  flow.addEventListener("click", (e) => { if (e.target.matches(".imgs img")) open(e.target); });
+  flow.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches(".imgs img")) open(e.target); });
+  document.getElementById("zoom-close").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
+  const variantBox = document.getElementById("variants");
+  VARIANTS.forEach((v) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.dataset.variant = v.id;
+    b.addEventListener("click", () => show(v));
+    variantBox.appendChild(b);
+  });
+  const langBox = document.getElementById("langs");
+  function applyLang() {
+    document.documentElement.dataset.lang = lang;
+    document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+    document.title = lang === "zh" ? "天空方块的一帧" : "A frame of the sky block";
+    variantBox.querySelectorAll("button").forEach((b) => { b.textContent = VARIANTS.find((v) => v.id === b.dataset.variant).label[lang]; });
+    langBox.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
+    document.getElementById("zoom-close").textContent = TEXT[lang].zoomClose;
+  }
+  langBox.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    lang = b.dataset.lang;
+    try { localStorage.setItem("sky-docs-lang", lang); } catch (e) { }
+    applyLang();
+    if (current) show(current);
+  }));
+  applyLang();
+
+  function show(v) {
+    current = v;
+    variantBox.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.variant === v.id)));
+    try { history.replaceState(null, "", "#" + v.id); } catch (e) { }
+    const key = v.id + "-" + lang;
+    if (!loaded[key]) {
+      try {
+        loaded[key] = JSON.parse(document.getElementById("flow-" + key).textContent);
+      } catch (e) {
+        flow.querySelectorAll(".lane-bg, .lane-head, .node, .flow-empty").forEach((x) => x.remove());
+        svg.innerHTML = "";
+        data = null;
+        const msg = document.createElement("p");
+        msg.className = "flow-empty";
+        msg.textContent = "flow-" + key + TEXT[lang].invalid + e.message;
+        flow.appendChild(msg);
+        return;
+      }
+    }
+    data = loaded[key];
+    render();
+  }
+  show(VARIANTS.find((v) => "#" + v.id === location.hash) || VARIANTS.find((v) => v.id === DEFAULT));
+  window.addEventListener("hashchange", () => {
+    const v = VARIANTS.find((x) => "#" + x.id === location.hash);
+    if (v && v !== current) show(v);
+  });
+})();
+</script>
+</body>
+</html>

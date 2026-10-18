@@ -1,0 +1,19 @@
+{
+  "required": true,
+  "package": "ml.mypals.sky.mixin.client",
+  "plugin": "ml.mypals.sky.mixin.SkyMixinPlugin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "FrontendGpuDeviceAccessor",
+    "GlDeviceAccessor",
+    "CloudRendererAccessor",
+    "LevelRendererAccessor",
+    "LevelRendererMixin",
+    "SkyRendererMixin",
+    "iris.IrisRenderingPipelineAccessor",
+    "iris.IrisRenderingPipelineMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,0 +1,79 @@
+package ml.mypals.sky.client.iris;
+
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.renderpearl.api.textures.GpuTexture;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
+import com.mojang.renderpearl.backend.opengl.FrameBufferCache;
+import com.mojang.renderpearl.backend.opengl.GlTexture;
+import ml.mypals.sky.mixin.client.FrontendGpuDeviceAccessor;
+import ml.mypals.sky.mixin.client.GlDeviceAccessor;
+import ml.mypals.sky.mixin.client.iris.IrisRenderingPipelineAccessor;
+import net.irisshaders.iris.Iris;
+import net.irisshaders.iris.api.v0.IrisApi;
+import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
+import net.irisshaders.iris.targets.RenderTarget;
+import org.jspecify.annotations.Nullable;
+
+public final class IrisAccess {
+    private static @Nullable PackTexture wrapped;
+    private static @Nullable GpuTextureView wrappedView;
+
+    private IrisAccess() {
+    }
+
+    public static boolean packInUse() {
+        return IrisApi.getInstance().isShaderPackInUse();
+    }
+
+    // Iris keeps its colortex as bare GL textures; wrapped as a renderpearl texture, render passes can copy, sample and
+    // draw into colortex0. The wrapper never deletes the texture: Iris owns it.
+    public static @Nullable GpuTextureView colortex0() {
+        if (!(Iris.getPipelineManager().getPipelineNullable() instanceof IrisRenderingPipeline pipeline)) {
+            return null;
+        }
+        RenderTarget target = ((IrisRenderingPipelineAccessor) pipeline).sky$getRenderTargets().get(0);
+        if (target == null) {
+            return null;
+        }
+        GpuFormat format = format(target.getInternalFormat().name());
+        if (format == null) {
+            return null;
+        }
+        int id = target.getMainTexture();
+        int width = target.getWidth();
+        int height = target.getHeight();
+        if (wrapped == null || wrapped.glId() != id || wrapped.getWidth(0) != width || wrapped.getHeight(0) != height || wrapped.getFormat() != format) {
+            if (wrappedView != null) {
+                wrappedView.close();
+            }
+            FrameBufferCache cache = ((GlDeviceAccessor) ((FrontendGpuDeviceAccessor) RenderSystem.getDevice()).sky$getBackend()).sky$frameBufferCache();
+            wrapped = new PackTexture(format, width, height, id, cache);
+            wrappedView = RenderSystem.getDevice().createTextureView(wrapped);
+        }
+        return wrappedView;
+    }
+
+    private static @Nullable GpuFormat format(String irisFormat) {
+        return switch (irisFormat) {
+            case "RGBA", "RGBA8" -> GpuFormat.RGBA8_UNORM;
+            case "RGBA16" -> GpuFormat.RGBA16_UNORM;
+            case "RGBA16F" -> GpuFormat.RGBA16_FLOAT;
+            case "RGBA32F" -> GpuFormat.RGBA32_FLOAT;
+            case "R11F_G11F_B10F" -> GpuFormat.RG11B10_FLOAT;
+            case "RGB10_A2" -> GpuFormat.RGB10A2_UNORM;
+            default -> null;
+        };
+    }
+
+    private static final class PackTexture extends GlTexture {
+        PackTexture(GpuFormat format, int width, int height, int id, FrameBufferCache cache) {
+            super(GpuTexture.USAGE_COPY_SRC | GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_RENDER_ATTACHMENT,
+                    "sky colortex0", format, width, height, 1, 1, id, cache);
+        }
+
+        @Override
+        public void close() {
+        }
+    }
+}
