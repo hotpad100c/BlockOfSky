@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "ml.mypals.sky.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "LightEngineAccessor",
+    "LightEngineMixin",
+    "SkyLightEngineMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

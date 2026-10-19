@@ -11,6 +11,7 @@ import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.LightLayer;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -116,17 +117,11 @@ public final class SkySmoke implements ClientModInitializer {
             int x = this.origin.getX();
             int y = this.origin.getY();
             int z = this.origin.getZ();
-            // A dark stone box, floor at y and ceiling at y + 7, with a pillar of sky blocks from floor to ceiling in
-            // the middle. With the morning sun at an angle, sunlight comes out of the pillar's side away from the sun
+            // A closed dark stone box, floor at y and ceiling at y + 7, with a pillar of sky blocks from floor to
+            // ceiling in the middle. The pillar is the only source of sky light inside. With the morning sun at an angle, sunlight comes out of the pillar's side away from the sun
             // and lights a strip of the floor; without the holes the box stays dark.
             command(mc, fill(x - 7, y, z - 7, x + 7, y + 7, z + 7, "minecraft:stone hollow"));
             command(mc, fill(x, y + 1, z, x, y + 6, z, "sky:sky"));
-            // 1x1 holes low in the two walls away from the (morning, south-east) sun: sky light but no sunlight
-            // inside, since shader packs fade the sun out where there is no sky light.
-            for (int i : new int[]{-5, -2, 1, 4}) {
-                command(mc, fill(x - 7, y + 1, z + i, x - 7, y + 1, z + i, "minecraft:air"));
-                command(mc, fill(x + i, y + 1, z - 7, x + i, y + 1, z - 7, "minecraft:air"));
-            }
             // An awning over the box: its shadow falls on the ceiling over the pillar, and must stay there when the
             // camera is outside.
             command(mc, fill(x - 2, y + 11, z - 2, x + 2, y + 11, z + 2, "minecraft:stone"));
@@ -145,7 +140,7 @@ public final class SkySmoke implements ClientModInitializer {
         }
         if (this.shot >= 0 && !this.captured) {
             Shot s = SHOTS.get(this.shot);
-            check(s);
+            check(mc, s);
             mc.gui.hud.getChat().clearMessages(false);
             screenshot(mc, s.name());
             DepthDump.dump(mc, s.name());
@@ -177,8 +172,23 @@ public final class SkySmoke implements ClientModInitializer {
         this.waitUntilFrame = ShadowHoles.framesPrepared + SETTLE_FRAMES;
     }
 
-    private void check(Shot s) {
+    private void check(Minecraft mc, Shot s) {
         int[] quads = ShadowHoles.lastQuads;
+        if (s.view().equals("inside")) {
+            // The box is closed: all its sky light comes from the pillar, one less per block away from it.
+            BlockPos next = this.origin.offset(-1, 1, 0);
+            BlockPos far = this.origin.offset(-5, 1, -5);
+            BlockPos pillar = this.origin.offset(0, 3, 0);
+            int atPillar = mc.level.getBrightness(LightLayer.SKY, pillar);
+            int nextTo = mc.level.getBrightness(LightLayer.SKY, next);
+            int away = mc.level.getBrightness(LightLayer.SKY, far);
+            log("sky light: pillar " + atPillar + ", next to it " + nextTo + ", 10 blocks away " + away
+                    + "; on the server: " + serverSky(mc, pillar) + "/" + serverSky(mc, next) + "/" + serverSky(mc, far)
+);
+            if (atPillar != 15 || nextTo != 14 || away != 5 || serverSky(mc, far) != 5) {
+                this.failures.add(s.name() + ": sky light " + atPillar + "/" + nextTo + "/" + away + ", expected 15/14/5");
+            }
+        }
         log("shot " + s.name() + ": quads front/through/far = " + Arrays.toString(quads)
                 + ", samples = " + Arrays.toString(ShadowHoles.lastSamples) + ", frames drawing nothing so far = "
                 + Arrays.toString(ShadowHoles.emptyFrames)
@@ -205,6 +215,11 @@ public final class SkySmoke implements ClientModInitializer {
                 this.failures.add(s.name() + ": set " + i + " drew nothing in " + ShadowHoles.emptyFrames[i] + " frames");
             }
         }
+    }
+
+    private static int serverSky(Minecraft mc, BlockPos pos) {
+        var server = mc.getSingleplayerServer();
+        return server == null ? -1 : server.overworld().getBrightness(LightLayer.SKY, pos);
     }
 
     private void finish(Minecraft mc, String error) {

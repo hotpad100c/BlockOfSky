@@ -18,6 +18,7 @@
     ]
   },
   "mixins": [
+    "sky.mixins.json",
     "sky.client.mixins.json"
   ],
   "depends": {
