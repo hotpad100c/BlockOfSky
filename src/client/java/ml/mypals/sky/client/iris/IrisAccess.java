@@ -12,6 +12,7 @@ import ml.mypals.sky.mixin.client.iris.IrisRenderingPipelineAccessor;
 import net.irisshaders.iris.Iris;
 import net.irisshaders.iris.api.v0.IrisApi;
 import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
+import net.irisshaders.iris.shadows.ShadowRenderTargets;
 import net.irisshaders.iris.targets.RenderTarget;
 import org.jspecify.annotations.Nullable;
 
@@ -52,6 +53,27 @@ public final class IrisAccess {
             wrappedView = RenderSystem.getDevice().createTextureView(wrapped);
         }
         return wrappedView;
+    }
+
+    public static @Nullable GpuTexture shadowDepth() {
+        if (!(Iris.getPipelineManager().getPipelineNullable() instanceof IrisRenderingPipeline pipeline)) {
+            return null;
+        }
+        ShadowRenderTargets targets = ((IrisRenderingPipelineAccessor) pipeline).sky$getShadowRenderTargets();
+        return targets == null ? null : targets.getDepthTexture();
+    }
+
+    /**
+     * Binds Iris's framebuffer on the shadow map. In the shadow pass Iris ignores the framebuffers of render passes and
+     * draws into whatever is bound, and a texture copy leaves its own framebuffer bound.
+     */
+    public static void bindShadowFramebuffer() {
+        if (Iris.getPipelineManager().getPipelineNullable() instanceof IrisRenderingPipeline pipeline) {
+            ShadowRenderTargets targets = ((IrisRenderingPipelineAccessor) pipeline).sky$getShadowRenderTargets();
+            if (targets != null) {
+                targets.getDepthSourceFb().bind();
+            }
+        }
     }
 
     private static @Nullable GpuFormat format(String irisFormat) {

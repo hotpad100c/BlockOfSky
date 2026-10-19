@@ -44,6 +44,7 @@ public final class SkyClient implements ClientModInitializer {
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
             SkyCubes.close();
             ShaderSkyHoles.close();
+            ShadowHoles.close();
         });
         if (IRIS) {
             SkyBlock.solidWhileShowing = IrisAccess::packInUse;

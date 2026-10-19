@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "sky_smoke",
+  "version": "1.0.0",
+  "name": "Sky smoke check",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "ml.mypals.sky.smoke.SkySmoke"
+    ]
+  },
+  "mixins": [
+    "sky_smoke.mixins.json"
+  ],
+  "depends": {
+    "sky": "*"
+  }
+}

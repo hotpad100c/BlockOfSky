@@ -8,10 +8,13 @@
     "GlDeviceAccessor",
     "CloudRendererAccessor",
     "LevelRendererAccessor",
+    "GlCommandEncoderMixin",
     "LevelRendererMixin",
     "SkyRendererMixin",
     "iris.IrisRenderingPipelineAccessor",
-    "iris.IrisRenderingPipelineMixin"
+    "iris.CommonTransformerMixin",
+    "iris.IrisRenderingPipelineMixin",
+    "iris.ShadowRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

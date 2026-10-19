@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "ml.mypals.sky.smoke.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "CreateWorldScreenAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

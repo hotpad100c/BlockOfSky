@@ -11,11 +11,34 @@ base {
 
 loom {
     splitEnvironmentSourceSets()
+}
+
+sourceSets {
+    smoke {
+        compileClasspath += sourceSets.main.output + sourceSets.client.output + sourceSets.client.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.client.output + sourceSets.client.runtimeClasspath
+    }
+}
+
+loom {
 
     mods {
         "sky" {
             sourceSet sourceSets.main
             sourceSet sourceSets.client
+        }
+        "sky_smoke" {
+            sourceSet sourceSets.smoke
+        }
+    }
+
+    runs {
+        smokeClient {
+            client()
+            name = "Smoke Client"
+            source sourceSets.smoke
+            runDir = "run/smoke"
+            vmArg "-Djava.awt.headless=true"
         }
     }
 }
@@ -40,6 +63,7 @@ dependencies {
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
     clientCompileOnly "maven.modrinth:${project.iris_fabric}"
+    clientCompileOnly("io.github.douira:glsl-transformer:${project.glsl_transformer_version}") { transitive = false }
     for (mod in [project.iris_fabric, project.sodium_fabric]) {
         localRuntime "maven.modrinth:${mod}"
     }
@@ -52,6 +76,11 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
     }
+}
+
+configurations {
+    smokeCompileClasspath.extendsFrom clientCompileClasspath
+    smokeRuntimeClasspath.extendsFrom clientRuntimeClasspath
 }
 
 processResources {
