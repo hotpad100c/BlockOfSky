@@ -1,6 +1,7 @@
 package ml.mypals.sky.smoke;
 
 import ml.mypals.sky.client.ShadowHoles;
+import ml.mypals.sky.client.ThroughDepth;
 import ml.mypals.sky.smoke.mixin.CreateWorldScreenAccessor;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -10,6 +11,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
+import net.minecraft.client.tutorial.TutorialSteps;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.LightLayer;
 
@@ -103,6 +105,11 @@ public final class SkySmoke implements ClientModInitializer {
     private void showcase(Minecraft mc) {
         int t = this.ticksInWorld;
         if (t == 20) {
+            // Pictures of the world only: no tutorial, no HUD (chat, hotbar, hand, crosshair), as with F1.
+            mc.options.tutorialStep = TutorialSteps.NONE;
+            if (!mc.gui.hud.isHidden()) {
+                mc.gui.hud.toggle();
+            }
             command(mc, "time set 3000");
             command(mc, "weather clear");
             command(mc, "gamerule advance_time false");
@@ -117,14 +124,17 @@ public final class SkySmoke implements ClientModInitializer {
             int x = this.origin.getX();
             int y = this.origin.getY();
             int z = this.origin.getZ();
-            // A closed dark stone box, floor at y and ceiling at y + 7, with a pillar of sky blocks from floor to
-            // ceiling in the middle. The pillar is the only source of sky light inside. With the morning sun at an angle, sunlight comes out of the pillar's side away from the sun
-            // and lights a strip of the floor; without the holes the box stays dark.
+            // A closed dark stone box, floor at y and ceiling at y + 7, with a pillar of three sky blocks on the floor in
+            // the middle. The pillar is the only source of sky light inside. With the morning sun at an angle,
+            // sunlight comes out of the pillar's side away from the sun and lights a strip of the floor; without the
+            // holes the box stays dark. Between the top of the pillar and the ceiling there is air: no light belongs
+            // there (the ceiling is in the way), which shows whether a light beam comes through the ceiling.
             command(mc, fill(x - 7, y, z - 7, x + 7, y + 7, z + 7, "minecraft:stone hollow"));
-            command(mc, fill(x, y + 1, z, x, y + 6, z, "sky:sky"));
-            // An awning over the box: its shadow falls on the ceiling over the pillar, and must stay there when the
-            // camera is outside.
-            command(mc, fill(x - 2, y + 11, z - 2, x + 2, y + 11, z + 2, "minecraft:stone"));
+            command(mc, fill(x, y + 1, z, x, y + 3, z, "sky:sky"));
+            // An awning over the box, on the sun's side: its shadow falls on the roof where the sunlight going into the
+            // pillar crosses it (the morning sun is up the +x +z diagonal, about 0.9 and 0.84 blocks across per block
+            // up). It must stay there: only the light coming out of the pillar may skip what is above it.
+            command(mc, fill(x + 6, y + 11, z + 5, x + 10, y + 11, z + 9, "minecraft:stone"));
             this.built = true;
             this.builtAtTick = t;
             this.waitUntilFrame = ShadowHoles.framesPrepared + SETTLE_FRAMES * 2;
@@ -142,6 +152,7 @@ public final class SkySmoke implements ClientModInitializer {
             Shot s = SHOTS.get(this.shot);
             check(mc, s);
             mc.gui.hud.getChat().clearMessages(false);
+            mc.gui.toastManager().clear();
             screenshot(mc, s.name());
             DepthDump.dump(mc, s.name());
             this.captured = true;
@@ -167,7 +178,8 @@ public final class SkySmoke implements ClientModInitializer {
             // West of the pillar (the morning sun is in the east), looking at it and the floor it lights.
             command(mc, String.format(Locale.ROOT, "tp @s %.1f %.1f %.1f -130 28", x - 5.5, y + 2.5, z + 4.5));
         } else {
-            command(mc, String.format(Locale.ROOT, "tp @s %.1f %.1f %.1f 135 40", x + 6.5, y + 9.0, z + 6.5));
+            // Over the north-west corner of the roof, looking at the awning's shadow across it.
+            command(mc, String.format(Locale.ROOT, "tp @s %.1f %.1f %.1f -45 30", x - 4.5, y + 11.0, z - 4.5));
         }
         this.waitUntilFrame = ShadowHoles.framesPrepared + SETTLE_FRAMES;
     }
@@ -200,7 +212,8 @@ public final class SkySmoke implements ClientModInitializer {
             return;
         }
         boolean through = quads[1] > 0;
-        boolean expectThrough = s.forceThrough() || s.view().equals("inside");
+        // The receiver mode never needs "through": the pack's lookups find the light beyond the blocks.
+        boolean expectThrough = !ThroughDepth.enabled() && (s.forceThrough() || s.view().equals("inside"));
         if (through != expectThrough || quads[0] + quads[1] == 0) {
             this.failures.add(s.name() + ": expected " + (expectThrough ? "through" : "front") + " mode, got " + Arrays.toString(quads));
         }

@@ -128,6 +128,7 @@ dialog.zoom button { justify-self: end; font: inherit; font-size: 0.85rem; backg
 .toolbar .variants button[aria-pressed="true"] { background: var(--fg); color: var(--surface); }
 .node .boxed { position: relative; }
 .node .region { position: absolute; border: 2px dashed var(--probe); pointer-events: none; box-sizing: border-box; }
+.diagram svg { display: block; width: 100%; height: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
 .flow-empty { grid-column: 1 / -1; grid-row: 2; z-index: 2; padding: 1.5rem; color: var(--muted); }
 .table-wrap { overflow-x: auto; }
 table { border-collapse: collapse; font-size: 0.9rem; font-variant-numeric: tabular-nums; min-width: 32rem; }
@@ -190,44 +191,111 @@ html[data-lang="en"] [lang="zh-CN"], html[data-lang="zh"] [lang="en"] { display:
         <svg class="edges" id="edges" aria-hidden="true"></svg>
       </div>
     </div>
-    <p lang="en" class="note">Click a picture to enlarge it. On narrow screens the flowchart scrolls sideways. Window 854×480; BSL v8.4, Kappa v5.3.</p>
-<p lang="zh-CN" class="note">点图片可以放大。窄屏上流程图可以左右滑动。窗口 854×480；BSL v8.4、Kappa v5.3。</p>
+    <p lang="en" class="note">Click a picture to enlarge it. On narrow screens the flowchart scrolls sideways. Window 854×480; BSL v8.4, Kappa v5.3. The sunlight variants: Minecraft 26.3, Fabric, Iris, Complementary Unbound r5.9.3; their shadow-space pictures are 320×320 crops of the 2048×2048 maps around the sky blocks, all on one grey scale per shot: nearer the sun is whiter, nothing is dark blue.</p>
+<p lang="zh-CN" class="note">点图片可以放大。窄屏上流程图可以左右滑动。窗口 854×480；BSL v8.4、Kappa v5.3。两个"阳光"情况：Minecraft 26.3、Fabric、Iris、Complementary Unbound r5.9.3；阴影空间的图是 2048×2048 贴图里天空方块周围 320×320 的局部，同一次截图的几张图共用一个灰度：离太阳越近越白，没有东西是深蓝。</p>
   </section>
 
-  <section class="stack" aria-labelledby="why-title">
-    <h2 id="why-title"><span lang="en">Why let the pack draw the block again</span><span lang="zh-CN">为什么让光影自己再画一遍</span></h2>
-    <p lang="en" class="prose">A shader pack's vertex shaders may move vertices anywhere. Kappa draws the whole scene into the lower-left 75% and scales it up later (TAAU), with sub-pixel TAA jitter every frame. Working out where the block is with vanilla's matrices would miss where the pack actually drew it, and the sky would drift off the block. So the mod draws the block again with the vanilla entity render type: Iris swaps in the pack's own program, so the scaling and jitter happen as well. The pixels whose depth changed are exactly where the block is, without knowing what the pack did to the vertices.</p>
-<p lang="zh-CN" class="prose">光影的顶点着色器可以随意移动顶点。Kappa 先把整个场景画进左下角 75% 的区域，再放大回全屏（TAAU），每帧还有亚像素的 TAA 抖动。如果按原版矩阵自己算方块在哪，就会和光影实际画的位置对不上，天空会偏离方块。所以模组用原版的实体渲染类型把方块再画一遍：Iris 会把它换成光影自己的程序，缩放和抖动都照样发生。比较画前画后的深度，变了的像素就是方块真正所在的地方，不需要知道光影做了什么变换。</p>
+  <section class="stack" aria-labelledby="sun-title">
+    <h2 id="sun-title"><span lang="en">Sunlight through the sky block</span><span lang="zh-CN">让阳光从天空方块里照进来</span></h2>
+    <p lang="en" class="prose">A shader pack lights a point with the sun when nothing stands between the point and the sun. It finds out with its shadow map: seen from the sun, each texel keeps one depth, the nearest thing on that sun ray, and a point farther than that is in shadow. A sky block is a window to the sky, so sunlight should also come out of it, into a closed room. Two things make that happen. The block gives off sky light (a light source of level 15 in the light engine), so packs, which fade the sun out where there is no sky light, let the sun in at all. And the shadows are changed so that the light coming out of the block is not blocked by what is above the block.</p>
+<p lang="zh-CN" class="prose">光影判断一个点有没有被太阳照到，看的是点和太阳之间有没有东西。它用 shadow map 来回答：从太阳看过去，每个像素只存一个深度，也就是这条阳光线上最近的东西，比它更远的点就在阴影里。天空方块是一扇通向天空的窗，所以阳光也应该从它那里照进来，哪怕是在封闭的房间里。这要做到两件事。一是方块发出天空光（在光照引擎里是 15 级的光源），因为光影会在没有天空光的地方把太阳淡出；二是改阴影，让从方块里出来的光不被方块上方的东西挡住。</p>
+    <p lang="en" class="prose">One depth per texel is the whole difficulty: along the sun ray through the block, the point under the block must be lit while the air above the block, under the ceiling, stays dark. A single depth cannot say both. Below, one sun ray in the smoke test's scene, and what three ways of changing the shadows make of each part of it.</p>
+<p lang="zh-CN" class="prose">难就难在每个像素只有一个深度：穿过方块的那条阳光线上，方块下面的点要亮，方块上面、天花板下面的空气要暗，一个深度说不清这两件事。下图是冒烟测试场景里的一条阳光线，以及三种改阴影的做法对它每一段的结果。</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 960 470" role="img" aria-labelledby="ray-desc">
+        <desc id="ray-desc">One sun ray through an awning, a ceiling, a sky block and a floor, and which parts of it each method lights.</desc>
+        <style>
+          .d-txt { fill: var(--fg); font-family: var(--font-body); font-size: 13px; }
+          .d-sub { fill: var(--muted); font-family: var(--font-body); font-size: 11.5px; }
+          .d-mono { fill: var(--muted); font-family: var(--font-mono); font-size: 11px; }
+          .d-solid { fill: var(--muted); }
+          .d-sky { fill: #7fb6ec; stroke: var(--depth); stroke-width: 1.5; }
+          .d-lit { fill: var(--probe); }
+          .d-dark { fill: var(--line); }
+          .d-bad { fill: var(--bad); font-family: var(--font-body); font-size: 15px; font-weight: 700; }
+          .d-ray { stroke: var(--probe); stroke-width: 2; stroke-dasharray: 6 5; }
+          .d-guide { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 4; }
+          html[data-lang="en"] .diagram [lang="zh-CN"], html[data-lang="zh"] .diagram [lang="en"] { display: none; }
+        </style>
+        <!-- the sun and the ray -->
+        <circle cx="150" cy="34" r="16" class="d-lit"/>
+        <line x1="150" y1="54" x2="150" y2="452" class="d-ray"/>
+        <text x="176" y="30" class="d-txt" lang="en">the sun</text><text x="176" y="30" class="d-txt" lang="zh-CN">太阳</text>
+        <text x="176" y="46" class="d-sub" lang="en">one ray = one shadow texel</text><text x="176" y="46" class="d-sub" lang="zh-CN">一条光线 = 一个阴影像素</text>
+        <!-- what the ray goes through, top (near the sun) to bottom -->
+        <rect x="80" y="96" width="140" height="12" class="d-solid"/>
+        <rect x="80" y="166" width="140" height="12" class="d-solid"/>
+        <rect x="120" y="242" width="60" height="50" class="d-sky"/>
+        <rect x="80" y="380" width="140" height="12" class="d-solid"/>
+        <text x="72" y="106" text-anchor="end" class="d-txt" lang="en">awning</text><text x="72" y="106" text-anchor="end" class="d-txt" lang="zh-CN">雨棚</text>
+        <text x="72" y="176" text-anchor="end" class="d-txt" lang="en">ceiling</text><text x="72" y="176" text-anchor="end" class="d-txt" lang="zh-CN">天花板</text>
+        <text x="112" y="263" text-anchor="end" class="d-txt" lang="en">sky block</text><text x="112" y="263" text-anchor="end" class="d-txt" lang="zh-CN">天空方块</text>
+        <text x="112" y="279" text-anchor="end" class="d-sub" lang="en">front … back</text><text x="112" y="279" text-anchor="end" class="d-sub" lang="zh-CN">正面 … 背面</text>
+        <text x="72" y="390" text-anchor="end" class="d-txt" lang="en">floor</text><text x="72" y="390" text-anchor="end" class="d-txt" lang="zh-CN">地板</text>
+        <text x="20" y="458" class="d-sub" lang="en">farther from the sun ↓</text><text x="20" y="458" class="d-sub" lang="zh-CN">离太阳更远 ↓</text>
+        <!-- guides across the columns -->
+        <line x1="230" y1="102" x2="930" y2="102" class="d-guide"/>
+        <line x1="230" y1="172" x2="930" y2="172" class="d-guide"/>
+        <line x1="230" y1="242" x2="930" y2="242" class="d-guide"/>
+        <line x1="230" y1="292" x2="930" y2="292" class="d-guide"/>
+        <line x1="230" y1="386" x2="930" y2="386" class="d-guide"/>
+        <!-- column heads -->
+        <text x="410" y="30" text-anchor="middle" class="d-txt" lang="en">maps · front</text><text x="410" y="30" text-anchor="middle" class="d-txt" lang="zh-CN">maps · front</text>
+        <text x="410" y="46" text-anchor="middle" class="d-sub" lang="en">drop only the block</text><text x="410" y="46" text-anchor="middle" class="d-sub" lang="zh-CN">只丢掉方块本身</text>
+        <text x="610" y="30" text-anchor="middle" class="d-txt" lang="en">maps · through</text><text x="610" y="30" text-anchor="middle" class="d-txt" lang="zh-CN">maps · through</text>
+        <text x="610" y="46" text-anchor="middle" class="d-sub" lang="en">drop everything up to the block</text><text x="610" y="46" text-anchor="middle" class="d-sub" lang="zh-CN">丢掉方块及以上的一切</text>
+        <text x="810" y="30" text-anchor="middle" class="d-txt" lang="en">receiver</text><text x="810" y="30" text-anchor="middle" class="d-txt" lang="zh-CN">receiver</text>
+        <text x="810" y="46" text-anchor="middle" class="d-sub" lang="en">two depths, each point picks</text><text x="810" y="46" text-anchor="middle" class="d-sub" lang="zh-CN">两层深度，每个点自己挑</text>
+        <!-- segments: above the awning, awning→ceiling, ceiling→block, block→floor, below the floor -->
+        <g transform="translate(390 0)">
+          <rect x="0" y="60" width="40" height="36" class="d-lit"/>
+          <rect x="0" y="108" width="40" height="58" class="d-dark"/>
+          <rect x="0" y="178" width="40" height="64" class="d-dark"/>
+          <rect x="0" y="292" width="40" height="88" class="d-dark"/><text x="52" y="342" class="d-bad">✗</text>
+          <rect x="0" y="392" width="40" height="50" class="d-dark"/>
+        </g>
+        <g transform="translate(590 0)">
+          <rect x="0" y="60" width="40" height="36" class="d-lit"/>
+          <rect x="0" y="108" width="40" height="58" class="d-lit"/><text x="52" y="142" class="d-bad">✗</text>
+          <rect x="0" y="178" width="40" height="64" class="d-lit"/><text x="52" y="215" class="d-bad">✗</text>
+          <rect x="0" y="292" width="40" height="88" class="d-lit"/>
+          <rect x="0" y="392" width="40" height="50" class="d-dark"/>
+        </g>
+        <g transform="translate(790 0)">
+          <rect x="0" y="60" width="40" height="36" class="d-lit"/>
+          <rect x="0" y="108" width="40" height="58" class="d-dark"/>
+          <rect x="0" y="178" width="40" height="64" class="d-dark"/>
+          <rect x="0" y="292" width="40" height="88" class="d-lit"/>
+          <rect x="0" y="392" width="40" height="50" class="d-dark"/>
+        </g>
+        <!-- what each keeps in the texel -->
+        <text x="410" y="458" text-anchor="middle" class="d-mono" lang="en">shadow map: awning</text><text x="410" y="458" text-anchor="middle" class="d-mono" lang="zh-CN">shadow map：雨棚</text>
+        <text x="610" y="458" text-anchor="middle" class="d-mono" lang="en">shadow map: floor</text><text x="610" y="458" text-anchor="middle" class="d-mono" lang="zh-CN">shadow map：地板</text>
+        <text x="810" y="458" text-anchor="middle" class="d-mono" lang="en">shadow map: awning · beyond: floor</text><text x="810" y="458" text-anchor="middle" class="d-mono" lang="zh-CN">shadow map：雨棚 · 方块后：地板</text>
+        <!-- legend -->
+        <rect x="870" y="60" width="14" height="14" class="d-lit"/><text x="890" y="72" class="d-sub" lang="en">lit</text><text x="890" y="72" class="d-sub" lang="zh-CN">亮</text>
+        <rect x="870" y="82" width="14" height="14" class="d-dark"/><text x="890" y="94" class="d-sub" lang="en">dark</text><text x="890" y="94" class="d-sub" lang="zh-CN">暗</text>
+        <text x="872" y="118" class="d-bad">✗</text><text x="890" y="116" class="d-sub" lang="en">wrong</text><text x="890" y="116" class="d-sub" lang="zh-CN">错</text>
+      </svg>
+      <figcaption lang="en"><b>maps · front</b> keeps every shadow but no light comes out of the block. <b>maps · through</b> lets it out, but also lights the air under the ceiling (a light beam out of the ceiling) and drops the awning's shadow; the maps mode picks one of the two per block by what the camera sees. <b>receiver</b> keeps a second depth per texel, the nearest thing beyond the block, and each point picks the one it needs: a point beyond the block is tested against what is beyond the block only.</figcaption>
+<figcaption lang="zh-CN"><b>maps · front</b>保留所有阴影，但光出不来。<b>maps · through</b>让光出来，却也照亮了天花板下面的空气（光束从天花板里穿出），雨棚的影子也没了；maps 模式按相机看到什么，对每个方块在两者之间二选一。<b>receiver</b>给每个像素多存一层深度，也就是方块后面最近的东西，每个点按需要挑一层：在方块后面的点，只拿方块后面的东西来比较。</figcaption>
+    </figure>
+    <p lang="en" class="prose">The flowchart above follows both modes step by step: pick <i>Sunlight · maps mode</i> or <i>Sunlight · receiver mode</i>. In both, the mod first draws the sky blocks' faces through the pack's own shadow program, so its maps of where the blocks are land exactly where the pack puts the terrain, distortion included, without knowing what the pack's vertex shader does. Below, the roof of the box, with the awning's shadow on it right where the sunlight going into the pillar crosses the roof.</p>
+<p lang="zh-CN" class="prose">上面的流程图把两种模式一步步画了出来：切到<i>阳光 · maps 模式</i>或<i>阳光 · receiver 模式</i>即可。两种模式都先用光影自己的 shadow 程序画天空方块的面，所以"方块在哪"的图和光影画地形的位置完全对齐，扭曲也一样，而不需要知道光影的顶点着色器做了什么。下面是盒顶：雨棚的影子正好落在射向柱子的那束阳光穿过盒顶的位置。</p>
     <div class="pair">
       <figure>
-        <img src="img/kappa/s5-holes-mask.png" alt="">
-        <figcaption lang="en">Kappa: the holes are in the lower-left 75% of the buffer.</figcaption>
-<figcaption lang="zh-CN">Kappa：找到的洞在缓冲左下角 75% 的区域里。</figcaption>
+        <img src="img/sun/maps/roof-forced-through.png" alt="">
+        <figcaption lang="en"><span class="tag bad">maps · through</span>The hole is in the shadow map itself: where the sunlight reaching the pillar crosses the roof, the awning's shadow is gone. The maps mode uses this whenever the camera can see the light the pillar lets out.</figcaption>
+<figcaption lang="zh-CN"><span class="tag bad">maps · through</span>洞开在 shadow map 本身：射向柱子的阳光穿过盒顶的地方，雨棚的影子没了。只要相机看得到柱子放出的光，maps 模式就会用这种方式。</figcaption>
       </figure>
       <figure>
-        <img src="img/kappa/front.png" alt="">
-        <figcaption lang="en">After upscaling, Kappa's own sky is exactly in the window.</figcaption>
-<figcaption lang="zh-CN">放大之后，Kappa 自己的天空正好出现在窗的位置。</figcaption>
+        <img src="img/sun/receiver/roof-on.png" alt="">
+        <figcaption lang="en"><span class="tag good">receiver</span>The shadow map keeps the roof and the awning; only points beyond the pillar use the second depth. The awning's shadow stays, and inside the floor is still lit.</figcaption>
+<figcaption lang="zh-CN"><span class="tag good">receiver</span>shadow map 保留盒顶和雨棚，只有柱子后面的点才用第二层深度。雨棚的影子还在，盒子里的地板照样亮。</figcaption>
       </figure>
     </div>
-  </section>
-
-  <section class="stack prose" aria-labelledby="iris-title">
-    <h2 id="iris-title"><span lang="en">Two Iris 1.8 pitfalls</span><span lang="zh-CN">Iris 1.8 的两个坑</span></h2>
-    <ul class="plain" lang="en">
-      <li>While it renders the level, Iris skips every draw with a shader it does not know (<code>allowUnknownShaders</code> is off by default). The depth-copy and hole shaders are exempted with <code>SkipList.NONE_FORCE</code>.</li>
-      <li>Applying a shader Iris does not know binds the pack's framebuffer, and clearing it binds the main one. So the full-screen passes call <code>apply()</code> first, then bind their own framebuffer, then draw.</li>
-    </ul>
-    <ul class="plain" lang="zh-CN">
-      <li>Iris 在渲染世界期间会跳过它不认识的着色器（<code>allowUnknownShaders</code> 默认关闭）。复制深度和挖洞的着色器通过 <code>SkipList.NONE_FORCE</code> 豁免。</li>
-      <li>应用一个陌生着色器时，Iris 会切到光影的帧缓冲，清除时又切回主帧缓冲。所以全屏通道先 <code>apply()</code>，再绑定自己的帧缓冲，然后才绘制。</li>
-    </ul>
-  </section>
-
-  <section class="stack prose" aria-labelledby="run-title">
-    <h2 id="run-title"><span lang="en">Reproduce</span><span lang="zh-CN">重现</span></h2>
-    <p lang="en">On the <code>render-notes</code> branch, run <code>./gradlew runSmokeClient -PsmokeTag=bsl</code>. Screenshots go to <code>run/smoke/screenshots</code> and the buffers of each stage to <code>run/smoke/captures/&lt;tag&gt;</code>. To test a shader pack, put it into <code>run/smoke/shaderpacks</code> and enable it in <code>run/smoke/config/iris.properties</code>.</p>
-<p lang="zh-CN">在 <code>render-notes</code> 分支运行 <code>./gradlew runSmokeClient -PsmokeTag=bsl</code>。截图保存在 <code>run/smoke/screenshots</code>，各阶段的缓冲保存在 <code>run/smoke/captures/&lt;tag&gt;</code>。要测试某个光影包，把它放进 <code>run/smoke/shaderpacks</code>，再在 <code>run/smoke/config/iris.properties</code> 里启用它。</p>
+    <p lang="en" class="prose">How the pack's lighting gets to the second depth: when the pack loads, every program that reads the shadow map is patched. A comparison read (<code>sampler2DShadow</code>) carries the point's depth in its coordinates, so a wrapper tests it against the right depth. A raw read gives the pack a depth it compares itself; the comparison that follows it (<code>step</code>, <code>&lt;</code>, a subtraction) says which depth the point has, and the read is replaced by an effective depth: the depth beyond the block when the point is beyond it, the depth read otherwise. The pack's own filtering, colored shadows and light shafts then work unchanged.</p>
+<p lang="zh-CN" class="prose">光影的光照怎么用上第二层：加载光影时，所有读 shadow map 的程序都会被改写。比较读取（<code>sampler2DShadow</code>）的坐标里就带着点的深度，所以套一层包装函数，拿对的那层深度比。原始深度读取交给光影一个深度，由光影自己比较；紧随其后的比较（<code>step</code>、<code>&lt;</code>、减法）告诉我们点的深度，于是把读取换成"有效深度"：点在方块后面时给方块后的深度，否则给原值。光影自己的滤波、彩色阴影和体积光都照常工作。</p>
   </section>
 
   <dialog class="zoom" id="zoom">
@@ -2175,6 +2243,990 @@ html[data-lang="en"] [lang="zh-CN"], html[data-lang="zh"] [lang="en"] { display:
   ]
 }
 </script>
+<script type="application/json" id="flow-sun-maps-en">
+{
+  "lanes": [
+    {
+      "name": "Shader pack (Iris)",
+      "sub": "Complementary's own passes"
+    },
+    {
+      "name": "Sky block",
+      "sub": "what the mod does"
+    },
+    {
+      "name": "Shadow space",
+      "sub": "seen from the sun: crops of the 2048² maps"
+    },
+    {
+      "name": "Frame",
+      "sub": "what you see"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "light",
+      "lane": 2,
+      "row": 2,
+      "kind": "probe",
+      "when": "light engine",
+      "title": "The block gives off sky light",
+      "text": "A sky block that shows the sky is a sky light source of level 15. Packs fade the sun out where there is no sky light, so without it no sunlight gets into a closed room at all. In the box: 15 at the pillar, 14 next to it, 5 ten blocks away.",
+      "imgs": []
+    },
+    {
+      "id": "off",
+      "lane": 4,
+      "row": 2,
+      "kind": "depth",
+      "when": "holes off",
+      "title": "Without: the box stays dark",
+      "text": "Sky light alone: the pack fades the sun in, but the box's roof is in the shadow map and blocks it.",
+      "imgs": [
+        {
+          "src": "img/sun/maps/inside-off.png",
+          "caption": "inside"
+        }
+      ]
+    },
+    {
+      "id": "start",
+      "lane": 1,
+      "row": 3,
+      "kind": "pack",
+      "when": "renderShadows",
+      "title": "The shadow pass starts",
+      "text": "Iris clears the shadow map and sets the sun's matrices; no terrain is drawn yet.",
+      "imgs": []
+    },
+    {
+      "id": "decide",
+      "lane": 2,
+      "row": 3,
+      "kind": "probe",
+      "when": "1 · per block, on the CPU",
+      "title": "Front or through, from what the camera sees",
+      "text": "One depth per texel cannot let the light out and keep what is above the block. So each block picks: through when the camera can see light coming out of it (its back face, the light shaft, where it lands), front otherwise.",
+      "imgs": []
+    },
+    {
+      "id": "maps",
+      "lane": 3,
+      "row": 3,
+      "kind": "depth",
+      "when": "front · through · far",
+      "title": "Where each block is, and its mode",
+      "text": "Drawn through the pack's shadow program as in the receiver mode, the faces toward the sun go into the map of their block's mode. Inside the box the camera sees the light: the pillar is in through mode.",
+      "imgs": [
+        {
+          "src": "img/sun/maps/throughNear.png",
+          "caption": "through",
+          "size": [
+            320,
+            320
+          ]
+        },
+        {
+          "src": "img/sun/maps/far.png",
+          "caption": "far",
+          "size": [
+            320,
+            320
+          ]
+        }
+      ]
+    },
+    {
+      "id": "terrain",
+      "lane": 1,
+      "row": 5,
+      "kind": "pack",
+      "when": "shadow_terrain_* · shadow_entities_*",
+      "title": "The pack draws the world into the shadow map",
+      "text": "Its patched shadow fragment programs drop, in a front texel, only the block; in a through texel, everything nearer the sun than the block's back: the roof, the awning, the air between.",
+      "imgs": []
+    },
+    {
+      "id": "hole",
+      "lane": 3,
+      "row": 5,
+      "kind": "depth",
+      "when": "one depth per texel",
+      "title": "A hole through the roof",
+      "text": "The shadow map itself has the hole: every program that reads it sees light come in through the roof, the awning and the air above the block alike.",
+      "imgs": [
+        {
+          "src": "img/sun/maps/shadowtex0.png",
+          "caption": "shadow map",
+          "size": [
+            320,
+            320
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lighting",
+      "lane": 1,
+      "row": 7,
+      "kind": "pack",
+      "when": "gbuffers · deferred · composite",
+      "title": "The pack lights the scene, unchanged",
+      "text": "Nothing in the lighting programs is changed: they read the shadow map with the hole.",
+      "imgs": []
+    },
+    {
+      "id": "frame",
+      "lane": 4,
+      "row": 7,
+      "kind": "merge",
+      "when": "result",
+      "title": "Right for one view at a time",
+      "text": "Inside, the floor is lit. From the roof the block is in front mode and the awning's shadow stays; forced into through mode, the awning's shadow over the block is gone. Turning the camera switches between the two.",
+      "imgs": [
+        {
+          "src": "img/sun/maps/inside-on.png",
+          "caption": "inside"
+        },
+        {
+          "src": "img/sun/maps/roof-on.png",
+          "caption": "roof · front"
+        },
+        {
+          "src": "img/sun/maps/roof-forced-through.png",
+          "caption": "roof · through"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "start",
+      "to": "decide",
+      "label": "",
+      "style": "probe"
+    },
+    {
+      "from": "decide",
+      "to": "maps",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "start",
+      "to": "terrain",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "maps",
+      "to": "terrain",
+      "label": "range",
+      "style": "depth"
+    },
+    {
+      "from": "terrain",
+      "to": "hole",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "terrain",
+      "to": "lighting",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "hole",
+      "to": "lighting",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "lighting",
+      "to": "frame",
+      "label": "",
+      "style": "merge"
+    },
+    {
+      "from": "light",
+      "to": "off",
+      "label": "",
+      "style": "depth"
+    }
+  ]
+}
+</script>
+<script type="application/json" id="flow-sun-maps-zh">
+{
+  "lanes": [
+    {
+      "name": "光影（Iris）",
+      "sub": "Complementary 自己的通道"
+    },
+    {
+      "name": "天空方块",
+      "sub": "模组做的事"
+    },
+    {
+      "name": "阴影空间",
+      "sub": "从太阳看过去：2048² 贴图的局部"
+    },
+    {
+      "name": "画面",
+      "sub": "最终看到的"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "light",
+      "lane": 2,
+      "row": 2,
+      "kind": "probe",
+      "when": "光照引擎",
+      "title": "方块发出天空光",
+      "text": "显示天空的天空方块是 15 级的天空光源。光影会在没有天空光的地方把太阳淡出，没有它，封闭房间里根本照不进阳光。盒子里实测：柱子处 15，旁边 14，十格外 5。",
+      "imgs": []
+    },
+    {
+      "id": "off",
+      "lane": 4,
+      "row": 2,
+      "kind": "depth",
+      "when": "不开洞",
+      "title": "不处理：盒子里一片暗",
+      "text": "只有天空光：光影让太阳进来了，但盒顶在 shadow map 里，把光挡住。",
+      "imgs": [
+        {
+          "src": "img/sun/maps/inside-off.png",
+          "caption": "盒内"
+        }
+      ]
+    },
+    {
+      "id": "start",
+      "lane": 1,
+      "row": 3,
+      "kind": "pack",
+      "when": "renderShadows",
+      "title": "shadow pass 开始",
+      "text": "Iris 清空 shadow map，设好太阳的矩阵；还没开始画地形。",
+      "imgs": []
+    },
+    {
+      "id": "decide",
+      "lane": 2,
+      "row": 3,
+      "kind": "probe",
+      "when": "1 · 每个方块，CPU 上",
+      "title": "按相机看到的决定 front 还是 through",
+      "text": "每个像素只有一个深度，没法既放光出来、又保留方块上方的遮挡。所以每个方块二选一：相机看得到它放出的光（背面、光柱、落点）就用 through，否则用 front。",
+      "imgs": []
+    },
+    {
+      "id": "maps",
+      "lane": 3,
+      "row": 3,
+      "kind": "depth",
+      "when": "front · through · far",
+      "title": "每个方块在哪、用哪种模式",
+      "text": "和 receiver 模式一样用光影的 shadow 程序画；朝太阳的面按方块的模式分别画进对应的图。在盒子里相机看得到光，所以柱子是 through。",
+      "imgs": [
+        {
+          "src": "img/sun/maps/throughNear.png",
+          "caption": "through",
+          "size": [
+            320,
+            320
+          ]
+        },
+        {
+          "src": "img/sun/maps/far.png",
+          "caption": "far",
+          "size": [
+            320,
+            320
+          ]
+        }
+      ]
+    },
+    {
+      "id": "terrain",
+      "lane": 1,
+      "row": 5,
+      "kind": "pack",
+      "when": "shadow_terrain_* · shadow_entities_*",
+      "title": "光影把世界画进 shadow map",
+      "text": "被 patch 过的 shadow 片元着色器：front 像素里只丢掉方块本身；through 像素里丢掉比方块背面离太阳更近的一切：盒顶、雨棚、中间的空气。",
+      "imgs": []
+    },
+    {
+      "id": "hole",
+      "lane": 3,
+      "row": 5,
+      "kind": "depth",
+      "when": "每个像素一层深度",
+      "title": "盒顶上被打穿一个洞",
+      "text": "洞就开在 shadow map 本身：所有读它的程序看到的都一样，光从盒顶、雨棚和方块上方的空气里穿进来。",
+      "imgs": [
+        {
+          "src": "img/sun/maps/shadowtex0.png",
+          "caption": "shadow map",
+          "size": [
+            320,
+            320
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lighting",
+      "lane": 1,
+      "row": 7,
+      "kind": "pack",
+      "when": "gbuffers · deferred · composite",
+      "title": "光影照常计算光照",
+      "text": "光照程序一点没改，读到的是带洞的 shadow map。",
+      "imgs": []
+    },
+    {
+      "id": "frame",
+      "lane": 4,
+      "row": 7,
+      "kind": "merge",
+      "when": "结果",
+      "title": "一次只对一种视角是对的",
+      "text": "盒内地板被照亮。在盒顶上方块是 front 模式，雨棚的影子还在；强制 through 时，方块上方雨棚的影子没了。转动相机会在两者间切换。",
+      "imgs": [
+        {
+          "src": "img/sun/maps/inside-on.png",
+          "caption": "盒内"
+        },
+        {
+          "src": "img/sun/maps/roof-on.png",
+          "caption": "盒顶 · front"
+        },
+        {
+          "src": "img/sun/maps/roof-forced-through.png",
+          "caption": "盒顶 · through"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "start",
+      "to": "decide",
+      "label": "",
+      "style": "probe"
+    },
+    {
+      "from": "decide",
+      "to": "maps",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "start",
+      "to": "terrain",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "maps",
+      "to": "terrain",
+      "label": "范围",
+      "style": "depth"
+    },
+    {
+      "from": "terrain",
+      "to": "hole",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "terrain",
+      "to": "lighting",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "hole",
+      "to": "lighting",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "lighting",
+      "to": "frame",
+      "label": "",
+      "style": "merge"
+    },
+    {
+      "from": "light",
+      "to": "off",
+      "label": "",
+      "style": "depth"
+    }
+  ]
+}
+</script>
+<script type="application/json" id="flow-sun-receiver-en">
+{
+  "lanes": [
+    {
+      "name": "Shader pack (Iris)",
+      "sub": "Complementary's own passes"
+    },
+    {
+      "name": "Sky block",
+      "sub": "what the mod does"
+    },
+    {
+      "name": "Shadow space",
+      "sub": "seen from the sun: crops of the 2048² maps"
+    },
+    {
+      "name": "Frame",
+      "sub": "what you see"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "light",
+      "lane": 2,
+      "row": 2,
+      "kind": "probe",
+      "when": "light engine",
+      "title": "The block gives off sky light",
+      "text": "A sky block that shows the sky is a sky light source of level 15. Packs fade the sun out where there is no sky light, so without it no sunlight gets into a closed room at all. In the box: 15 at the pillar, 14 next to it, 5 ten blocks away.",
+      "imgs": []
+    },
+    {
+      "id": "off",
+      "lane": 4,
+      "row": 2,
+      "kind": "depth",
+      "when": "holes off",
+      "title": "Without: the box stays dark",
+      "text": "Sky light alone: the pack fades the sun in, but the box's roof is in the shadow map and blocks it.",
+      "imgs": [
+        {
+          "src": "img/sun/receiver/inside-off.png",
+          "caption": "inside"
+        }
+      ]
+    },
+    {
+      "id": "start",
+      "lane": 1,
+      "row": 3,
+      "kind": "pack",
+      "when": "renderShadows",
+      "title": "The shadow pass starts",
+      "text": "Iris clears the shadow map and sets the sun's matrices; no terrain is drawn yet.",
+      "imgs": []
+    },
+    {
+      "id": "faces",
+      "lane": 2,
+      "row": 3,
+      "kind": "probe",
+      "when": "1 · before the terrain",
+      "title": "Draw the blocks' faces through the pack's shadow program",
+      "text": "Iris swaps the pack's own shadow program in, so the faces land where the pack puts the terrain: its matrices, its distortion. Depth only, and the shadow map is put back after.",
+      "imgs": []
+    },
+    {
+      "id": "maps",
+      "lane": 3,
+      "row": 3,
+      "kind": "depth",
+      "when": "front · far",
+      "title": "Where each block is",
+      "text": "The faces toward the sun (front) and away from it, open to air (far): per shadow texel, the depth range of the block on that sun ray.",
+      "imgs": [
+        {
+          "src": "img/sun/receiver/frontNear.png",
+          "caption": "front",
+          "size": [
+            320,
+            320
+          ]
+        },
+        {
+          "src": "img/sun/receiver/far.png",
+          "caption": "far",
+          "size": [
+            320,
+            320
+          ]
+        }
+      ]
+    },
+    {
+      "id": "clear",
+      "lane": 2,
+      "row": 4,
+      "kind": "probe",
+      "when": "2",
+      "title": "Clear the depth beyond the blocks",
+      "text": "An <code>R32UI</code> texture as big as the shadow map, set to the far depth (1.0).",
+      "imgs": []
+    },
+    {
+      "id": "terrain",
+      "lane": 1,
+      "row": 5,
+      "kind": "pack",
+      "when": "shadow_terrain_* · shadow_entities_*",
+      "title": "The pack draws the world into the shadow map",
+      "text": "Its shadow fragment programs are patched. A fragment in a block's range is dropped, so the block casts no shadow; a fragment beyond a block also leaves its depth with <code>imageAtomicMin</code>, after the pack's own <code>main</code> (an alpha-tested leaf lets light by).",
+      "imgs": []
+    },
+    {
+      "id": "layers",
+      "lane": 3,
+      "row": 5,
+      "kind": "depth",
+      "when": "two depths per texel",
+      "title": "The nearest thing, and the nearest beyond the block",
+      "text": "The shadow map keeps the box's roof and the awning; the second map keeps, only where a block is, the first thing beyond it: the floor (darker: farther from the sun).",
+      "imgs": [
+        {
+          "src": "img/sun/receiver/shadowtex0.png",
+          "caption": "shadow map",
+          "size": [
+            320,
+            320
+          ]
+        },
+        {
+          "src": "img/sun/receiver/throughDepth.png",
+          "caption": "beyond the block",
+          "size": [
+            320,
+            320
+          ]
+        }
+      ]
+    },
+    {
+      "id": "barrier",
+      "lane": 2,
+      "row": 6,
+      "kind": "probe",
+      "when": "3 · after the shadow pass",
+      "title": "Memory barrier",
+      "text": "<code>glMemoryBarrier</code>: the atomic writes become visible to the programs that read the texture.",
+      "imgs": []
+    },
+    {
+      "id": "lighting",
+      "lane": 1,
+      "row": 7,
+      "kind": "pack",
+      "when": "gbuffers · deferred · composite",
+      "title": "The pack lights the scene and its light shafts",
+      "text": "Every read of the shadow map in these programs was patched when the pack loaded: a comparison read (<code>sampler2DShadow</code>) goes through a wrapper, a raw depth read gets an effective depth.",
+      "imgs": []
+    },
+    {
+      "id": "pick",
+      "lane": 2,
+      "row": 7,
+      "kind": "probe",
+      "when": "4 · in every read",
+      "title": "Beyond a block? Use the depth beyond it",
+      "text": "From the read's own coordinates: front/far say where the block is on that sun ray. A point farther than the block's back is tested against the second depth, any other point against the shadow map, whatever the camera sees.",
+      "imgs": []
+    },
+    {
+      "id": "frame",
+      "lane": 4,
+      "row": 7,
+      "kind": "merge",
+      "when": "result",
+      "title": "Light out of the block, every other shadow kept",
+      "text": "Inside, the floor beyond the pillar is lit; on the roof, the awning's shadow stays.",
+      "imgs": [
+        {
+          "src": "img/sun/receiver/inside-on.png",
+          "caption": "inside"
+        },
+        {
+          "src": "img/sun/receiver/roof-on.png",
+          "caption": "roof"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "start",
+      "to": "faces",
+      "label": "",
+      "style": "probe"
+    },
+    {
+      "from": "faces",
+      "to": "maps",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "faces",
+      "to": "clear",
+      "label": "",
+      "style": "probe"
+    },
+    {
+      "from": "start",
+      "to": "terrain",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "maps",
+      "to": "terrain",
+      "label": "range",
+      "style": "depth"
+    },
+    {
+      "from": "terrain",
+      "to": "layers",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "clear",
+      "to": "layers",
+      "label": "",
+      "style": "probe"
+    },
+    {
+      "from": "terrain",
+      "to": "barrier",
+      "label": "",
+      "style": "probe"
+    },
+    {
+      "from": "terrain",
+      "to": "lighting",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "barrier",
+      "to": "pick",
+      "label": "",
+      "style": "probe"
+    },
+    {
+      "from": "layers",
+      "to": "pick",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "lighting",
+      "to": "pick",
+      "label": "",
+      "style": "probe"
+    },
+    {
+      "from": "pick",
+      "to": "frame",
+      "label": "",
+      "style": "merge"
+    },
+    {
+      "from": "light",
+      "to": "off",
+      "label": "",
+      "style": "depth"
+    }
+  ]
+}
+</script>
+<script type="application/json" id="flow-sun-receiver-zh">
+{
+  "lanes": [
+    {
+      "name": "光影（Iris）",
+      "sub": "Complementary 自己的通道"
+    },
+    {
+      "name": "天空方块",
+      "sub": "模组做的事"
+    },
+    {
+      "name": "阴影空间",
+      "sub": "从太阳看过去：2048² 贴图的局部"
+    },
+    {
+      "name": "画面",
+      "sub": "最终看到的"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "light",
+      "lane": 2,
+      "row": 2,
+      "kind": "probe",
+      "when": "光照引擎",
+      "title": "方块发出天空光",
+      "text": "显示天空的天空方块是 15 级的天空光源。光影会在没有天空光的地方把太阳淡出，没有它，封闭房间里根本照不进阳光。盒子里实测：柱子处 15，旁边 14，十格外 5。",
+      "imgs": []
+    },
+    {
+      "id": "off",
+      "lane": 4,
+      "row": 2,
+      "kind": "depth",
+      "when": "不开洞",
+      "title": "不处理：盒子里一片暗",
+      "text": "只有天空光：光影让太阳进来了，但盒顶在 shadow map 里，把光挡住。",
+      "imgs": [
+        {
+          "src": "img/sun/receiver/inside-off.png",
+          "caption": "盒内"
+        }
+      ]
+    },
+    {
+      "id": "start",
+      "lane": 1,
+      "row": 3,
+      "kind": "pack",
+      "when": "renderShadows",
+      "title": "shadow pass 开始",
+      "text": "Iris 清空 shadow map，设好太阳的矩阵；还没开始画地形。",
+      "imgs": []
+    },
+    {
+      "id": "faces",
+      "lane": 2,
+      "row": 3,
+      "kind": "probe",
+      "when": "1 · 地形之前",
+      "title": "用光影的 shadow 程序画方块的面",
+      "text": "Iris 会换上光影自己的 shadow 程序，所以面落在光影放地形的位置：同样的矩阵、同样的扭曲。只取深度，画完把 shadow map 复原。",
+      "imgs": []
+    },
+    {
+      "id": "maps",
+      "lane": 3,
+      "row": 3,
+      "kind": "depth",
+      "when": "front · far",
+      "title": "每个方块在哪",
+      "text": "朝太阳的面（front）和背向太阳、外面是空气的面（far）：每个 shadow 像素上，这条阳光线穿过的方块的深度范围。",
+      "imgs": [
+        {
+          "src": "img/sun/receiver/frontNear.png",
+          "caption": "front",
+          "size": [
+            320,
+            320
+          ]
+        },
+        {
+          "src": "img/sun/receiver/far.png",
+          "caption": "far",
+          "size": [
+            320,
+            320
+          ]
+        }
+      ]
+    },
+    {
+      "id": "clear",
+      "lane": 2,
+      "row": 4,
+      "kind": "probe",
+      "when": "2",
+      "title": "清空方块后的深度",
+      "text": "一张和 shadow map 一样大的 <code>R32UI</code> 纹理，全部设为最远深度（1.0）。",
+      "imgs": []
+    },
+    {
+      "id": "terrain",
+      "lane": 1,
+      "row": 5,
+      "kind": "pack",
+      "when": "shadow_terrain_* · shadow_entities_*",
+      "title": "光影把世界画进 shadow map",
+      "text": "它的 shadow 片元着色器被 patch 过：落在方块范围里的片元被丢掉，方块不投影；落在方块后面的片元，在光影自己的 <code>main</code> 之后再用 <code>imageAtomicMin</code> 记下深度（被 alpha 测试丢掉的树叶不算遮挡）。",
+      "imgs": []
+    },
+    {
+      "id": "layers",
+      "lane": 3,
+      "row": 5,
+      "kind": "depth",
+      "when": "每个像素两层深度",
+      "title": "最近的东西，和方块后最近的东西",
+      "text": "shadow map 里是盒顶和雨棚；第二层只在有方块的地方有值，是方块后面的第一个东西：地板（更暗＝离太阳更远）。",
+      "imgs": [
+        {
+          "src": "img/sun/receiver/shadowtex0.png",
+          "caption": "shadow map",
+          "size": [
+            320,
+            320
+          ]
+        },
+        {
+          "src": "img/sun/receiver/throughDepth.png",
+          "caption": "方块后",
+          "size": [
+            320,
+            320
+          ]
+        }
+      ]
+    },
+    {
+      "id": "barrier",
+      "lane": 2,
+      "row": 6,
+      "kind": "probe",
+      "when": "3 · shadow pass 之后",
+      "title": "内存屏障",
+      "text": "<code>glMemoryBarrier</code>：让原子写入对之后读这张纹理的程序可见。",
+      "imgs": []
+    },
+    {
+      "id": "lighting",
+      "lane": 1,
+      "row": 7,
+      "kind": "pack",
+      "when": "gbuffers · deferred · composite",
+      "title": "光影计算光照和体积光",
+      "text": "这些程序里每一处读 shadow map 的地方，在加载光影时都被改写过：比较读取（<code>sampler2DShadow</code>）套上包装函数，原始深度读取换成有效深度。",
+      "imgs": []
+    },
+    {
+      "id": "pick",
+      "lane": 2,
+      "row": 7,
+      "kind": "probe",
+      "when": "4 · 每次读取",
+      "title": "在方块后面？用方块后的深度",
+      "text": "就用这次读取自己的坐标：front/far 说明这条阳光线上方块在哪。比方块背面更远的点，拿第二层深度比；其他点照常拿 shadow map 比，和相机看哪里无关。",
+      "imgs": []
+    },
+    {
+      "id": "frame",
+      "lane": 4,
+      "row": 7,
+      "kind": "merge",
+      "when": "结果",
+      "title": "光从方块出来，其他阴影都在",
+      "text": "盒内，柱子后面的地板被照亮；盒顶上，雨棚的影子还在。",
+      "imgs": [
+        {
+          "src": "img/sun/receiver/inside-on.png",
+          "caption": "盒内"
+        },
+        {
+          "src": "img/sun/receiver/roof-on.png",
+          "caption": "盒顶"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "start",
+      "to": "faces",
+      "label": "",
+      "style": "probe"
+    },
+    {
+      "from": "faces",
+      "to": "maps",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "faces",
+      "to": "clear",
+      "label": "",
+      "style": "probe"
+    },
+    {
+      "from": "start",
+      "to": "terrain",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "maps",
+      "to": "terrain",
+      "label": "范围",
+      "style": "depth"
+    },
+    {
+      "from": "terrain",
+      "to": "layers",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "clear",
+      "to": "layers",
+      "label": "",
+      "style": "probe"
+    },
+    {
+      "from": "terrain",
+      "to": "barrier",
+      "label": "",
+      "style": "probe"
+    },
+    {
+      "from": "terrain",
+      "to": "lighting",
+      "label": "",
+      "style": "pack"
+    },
+    {
+      "from": "barrier",
+      "to": "pick",
+      "label": "",
+      "style": "probe"
+    },
+    {
+      "from": "layers",
+      "to": "pick",
+      "label": "",
+      "style": "depth"
+    },
+    {
+      "from": "lighting",
+      "to": "pick",
+      "label": "",
+      "style": "probe"
+    },
+    {
+      "from": "pick",
+      "to": "frame",
+      "label": "",
+      "style": "merge"
+    },
+    {
+      "from": "light",
+      "to": "off",
+      "label": "",
+      "style": "depth"
+    }
+  ]
+}
+</script>
 <script>
 (function () {
   const flow = document.getElementById("flow");
@@ -2187,6 +3239,8 @@ html[data-lang="en"] [lang="zh-CN"], html[data-lang="zh"] [lang="en"] { display:
     { id: "vanilla", label: { en: "No shader pack", zh: "不开光影" } },
     { id: "bsl", label: { en: "Shader pack (BSL)", zh: "普通光影（BSL）" } },
     { id: "kappa", label: { en: "Render-scaled pack (Kappa)", zh: "降分辨率光影（Kappa）" } },
+    { id: "sun-maps", label: { en: "Sunlight · maps mode", zh: "阳光 · maps 模式" } },
+    { id: "sun-receiver", label: { en: "Sunlight · receiver mode", zh: "阳光 · receiver 模式" } },
   ];
   const DEFAULT = "bsl";
   const TEXT = {
