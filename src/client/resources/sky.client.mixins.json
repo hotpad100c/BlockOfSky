@@ -14,6 +14,7 @@
     "iris.IrisRenderingPipelineAccessor",
     "iris.CommonTransformerMixin",
     "iris.IrisRenderingPipelineMixin",
+    "iris.IrisSamplersMixin",
     "iris.ShadowRendererMixin"
   ],
   "injectors": {

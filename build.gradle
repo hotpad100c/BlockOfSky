@@ -33,6 +33,10 @@ loom {
     }
 
     runs {
+        // How sunlight goes through the sky blocks with a shader pack: ./gradlew runClient -PshadowHolesMode=receiver
+        configureEach {
+            property "sky.shadowHoles.mode", (project.findProperty("shadowHolesMode") ?: "maps").toString()
+        }
         smokeClient {
             client()
             name = "Smoke Client"

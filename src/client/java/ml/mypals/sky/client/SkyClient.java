@@ -41,6 +41,7 @@ public final class SkyClient implements ClientModInitializer {
             }
         });
         ClientBlockEntityEvents.BLOCK_ENTITY_UNLOAD.register((blockEntity, level) -> LOADED.remove(blockEntity));
+        ClientLifecycleEvents.CLIENT_STARTED.register(client -> ThroughDepth.detect());
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
             SkyCubes.close();
             ShaderSkyHoles.close();

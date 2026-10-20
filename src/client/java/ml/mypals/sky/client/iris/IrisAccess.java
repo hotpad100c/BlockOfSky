@@ -2,6 +2,8 @@ package ml.mypals.sky.client.iris;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.renderpearl.api.pipeline.CompiledRenderPipeline;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 import com.mojang.renderpearl.api.textures.GpuTexture;
 import com.mojang.renderpearl.api.textures.GpuTextureView;
 import com.mojang.renderpearl.backend.opengl.FrameBufferCache;
@@ -14,6 +16,7 @@ import net.irisshaders.iris.api.v0.IrisApi;
 import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
 import net.irisshaders.iris.shadows.ShadowRenderTargets;
 import net.irisshaders.iris.targets.RenderTarget;
+import net.irisshaders.iris.vertices.ImmediateState;
 import org.jspecify.annotations.Nullable;
 
 public final class IrisAccess {
@@ -21,6 +24,20 @@ public final class IrisAccess {
     private static @Nullable GpuTextureView wrappedView;
 
     private IrisAccess() {
+    }
+
+    /**
+     * One of our own pipelines, as it is. While a pack renders the level, Iris looks up a program of the pack for any
+     * pipeline, finds none for ours and logs it once per pipeline before falling back to it.
+     */
+    public static CompiledRenderPipeline compiledAsIs(RenderPipeline pipeline) {
+        boolean bypass = ImmediateState.bypass;
+        ImmediateState.bypass = true;
+        try {
+            return RenderSystem.getCompiledPipeline(pipeline);
+        } finally {
+            ImmediateState.bypass = bypass;
+        }
     }
 
     public static boolean packInUse() {

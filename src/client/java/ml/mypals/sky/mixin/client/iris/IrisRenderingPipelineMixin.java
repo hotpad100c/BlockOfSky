@@ -2,9 +2,11 @@ package ml.mypals.sky.mixin.client.iris;
 
 import ml.mypals.sky.client.ShaderSkyHoles;
 import ml.mypals.sky.client.ShadowHoles;
+import ml.mypals.sky.client.ThroughDepth;
 import net.irisshaders.iris.gl.image.ImageHolder;
 import net.irisshaders.iris.gl.sampler.GlSampler;
 import net.irisshaders.iris.gl.sampler.SamplerHolder;
+import net.irisshaders.iris.gl.texture.InternalTextureFormat;
 import net.irisshaders.iris.mixinterface.GpuTextureInterface;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -45,6 +47,9 @@ public class IrisRenderingPipelineMixin {
         for (int i = 0; i < ShadowHoles.SAMPLERS.length; i++) {
             samplers.addDynamicSampler(ShadowHoles.glId(i, texture -> ((GpuTextureInterface) texture).iris$getGlId()),
                     GlSampler.NEAREST, ShadowHoles.SAMPLERS[i]);
+        }
+        if (ThroughDepth.enabled()) {
+            images.addTextureImage(ThroughDepth::glId, InternalTextureFormat.R32UI, ThroughDepth.IMAGE);
         }
     }
 }

@@ -214,7 +214,7 @@ public final class ShaderSkyHoles {
             descriptor.withColorAttachment(color);
         }
         try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(descriptor.build())) {
-            pass.setPipeline(RenderSystem.getCompiledPipeline(pipeline));
+            pass.setPipeline(IrisAccess.compiledAsIs(pipeline));
             RenderSystem.bindDefaultUniforms(pass);
             pass.setUniform("Before", beforeDepth.getDepthTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
             pass.setUniform("After", afterDepth.getDepthTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));

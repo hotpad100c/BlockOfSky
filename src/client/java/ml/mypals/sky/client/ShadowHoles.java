@@ -33,7 +33,9 @@ import org.joml.Matrix4f;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.function.IntSupplier;
 
@@ -49,13 +51,14 @@ import java.util.function.IntSupplier;
  *     <li>{@link #FAR}: the faces away from the sun that border on air, so the back of the block is dropped too.</li>
  * </ul>
  * The maps are drawn through the pack's own shadow program, so they land where its vertex shader puts the terrain
- * (distortion included). A block is in "through" mode when the camera sees one of its faces away from the sun that
- * borders on air: only then can it see what the block lights.
+ * (distortion included). A block is in "through" mode when the camera sees what the block lights: one of its faces
+ * away from the sun that borders on air, the shaft of sunlight leaving that face, or where the shaft lands. Seen from
+ * the sun's side, the block hides its back but often not the light it lets through.
  */
 public final class ShadowHoles {
-    static final int FRONT_NEAR = 0;
+    public static final int FRONT_NEAR = 0;
     static final int THROUGH_NEAR = 1;
-    static final int FAR = 2;
+    public static final int FAR = 2;
     private static final String[] LABELS = {"sky shadow front near", "sky shadow through near", "sky shadow far"};
 
     public static final String[] SAMPLERS = {"blockofsky_frontNear", "blockofsky_throughNear", "blockofsky_far"};
@@ -66,12 +69,23 @@ public final class ShadowHoles {
     /** Set by the Iris mixins once they applied; the smoke check reads them. */
     public static boolean patchedShadowFragments;
     public static int patchedShaders;
+    /** Receiver mode: the pack's shadow map comparisons wrapped so far. */
+    public static int wrappedShadowReads;
     public static int framesPrepared;
     public static final int[] lastQuads = new int[3];
     /** Fragments of each set that passed the depth test in the last frame, and frames where a set drew nothing. */
     public static final int[] lastSamples = new int[3];
     public static final int[] emptyFrames = new int[3];
     private static int query;
+
+    /** How far the sunlight leaving a block is followed, in blocks. */
+    private static final double SHAFT_LENGTH = 48.0;
+    /** Blocks are checked again only every few frames, each in its own frame, and stay in "through" mode a while. */
+    private static final int CHECK_EVERY = 4;
+    private static final int HOLD_FRAMES = 12;
+    private static final double[][] FACE_SAMPLES = {{0, 0}, {-0.35, -0.35}, {0.35, -0.35}, {0.35, 0.35}, {-0.35, 0.35}};
+    /** The frame each block's light was last seen in. */
+    private static Map<BlockPos, Integer> lastSeen = new HashMap<>();
 
     private ShadowHoles() {
     }
@@ -106,6 +120,9 @@ public final class ShadowHoles {
     public static void prepare(GpuTexture shadowDepth, Matrix4f shadowModelView) {
         int size = shadowDepth.getWidth(0);
         ensure(size);
+        if (ThroughDepth.enabled()) {
+            ThroughDepth.clear(size);
+        }
         CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
         encoder.copyTextureToTexture(shadowDepth, cleared, 0, 0, 0, 0, 0, size, size);
 
@@ -152,13 +169,15 @@ public final class ShadowHoles {
         double sunY = shadowModelView.m12();
         double sunZ = shadowModelView.m22();
         Vec3 camera = Minecraft.getInstance().gameRenderer.mainCamera().position();
+        Vec3 sun = new Vec3(sunX, sunY, sunZ);
+        Map<BlockPos, Integer> nextSeen = new HashMap<>();
         for (SkyBlockEntity sky : SkyClient.loaded()) {
             if (!sky.showsSky()) {
                 continue;
             }
             BlockPos pos = sky.getBlockPos();
-            boolean through = false;
             List<Face> near = new ArrayList<>();
+            List<Direction> back = new ArrayList<>();
             for (Direction direction : Direction.values()) {
                 if (!sky.faceShows(direction)) {
                     continue;
@@ -168,29 +187,79 @@ public final class ShadowHoles {
                     near.add(new Face(pos, direction));
                 } else if (toSun < -1.0E-4 && !level.getBlockState(pos.relative(direction)).canOcclude()) {
                     sets.get(FAR).add(new Face(pos, direction));
-                    // The camera is on the open side of this face: it can see what comes in through the block.
-                    double planeX = pos.getX() + 0.5 + direction.getStepX() * 0.5;
-                    double planeY = pos.getY() + 0.5 + direction.getStepY() * 0.5;
-                    double planeZ = pos.getZ() + 0.5 + direction.getStepZ() * 0.5;
-                    double side = (camera.x - planeX) * direction.getStepX() + (camera.y - planeY) * direction.getStepY()
-                            + (camera.z - planeZ) * direction.getStepZ();
-                    if (side > 0.0 && sees(level, camera, new Vec3(planeX, planeY, planeZ), direction)) {
-                        through = true;
-                    }
+                    back.add(direction);
                 }
             }
+            // In the receiver mode every block is in "front" mode: the shadow map drops only the block, and the wrapped
+            // lookups find the light beyond it, wherever the camera is.
+            if (ThroughDepth.enabled()) {
+                sets.get(FRONT_NEAR).addAll(near);
+                continue;
+            }
+            Integer previous = lastSeen.get(pos);
+            int seen = previous == null ? Integer.MIN_VALUE / 2 : previous;
+            if ((previous == null || Math.floorMod(framesPrepared + pos.hashCode(), CHECK_EVERY) == 0)
+                    && seesLight(level, camera, sun, pos, back)) {
+                seen = framesPrepared;
+            }
+            nextSeen.put(pos, seen);
+            boolean through = framesPrepared - seen <= HOLD_FRAMES;
             // For comparison only: every block in "through" mode, whatever the camera sees.
             if (Boolean.getBoolean("sky.shadowHoles.forceThrough")) {
                 through = true;
             }
             sets.get(through ? THROUGH_NEAR : FRONT_NEAR).addAll(near);
         }
+        lastSeen = nextSeen;
         return sets;
     }
 
-    /** Whether nothing stands between the camera and the middle of a face (a single ray: good enough here). */
-    private static boolean sees(Level level, Vec3 camera, Vec3 faceCenter, Direction direction) {
-        Vec3 target = faceCenter.add(direction.getStepX() * 0.01, direction.getStepY() * 0.01, direction.getStepZ() * 0.01);
+    /**
+     * Whether the camera sees anything the block lights: one of its faces away from the sun, or the sunlight leaving
+     * such a face, followed away from the sun to where it lands, sampled at a few points of the face.
+     */
+    private static boolean seesLight(Level level, Vec3 camera, Vec3 sun, BlockPos pos, List<Direction> back) {
+        // The faces themselves first: they are the cheapest to check.
+        for (Direction direction : back) {
+            Vec3 center = faceCenter(pos, direction);
+            Vec3 normal = normal(direction);
+            if (camera.subtract(center).dot(normal) > 0.0 && sees(level, camera, center.add(normal.scale(0.01)))) {
+                return true;
+            }
+        }
+        for (Direction direction : back) {
+            Vec3 center = faceCenter(pos, direction);
+            Vec3 normal = normal(direction);
+            Vec3 across = Math.abs(normal.y) > 0.5 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0);
+            Vec3 along = normal.cross(across);
+            for (double[] sample : FACE_SAMPLES) {
+                Vec3 start = center.add(across.scale(sample[0])).add(along.scale(sample[1])).add(normal.scale(0.01));
+                Vec3 end = start.subtract(sun.scale(SHAFT_LENGTH));
+                BlockHitResult hit = level.clip(new ClipContext(start, end, ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, CollisionContext.empty()));
+                Vec3 land = hit.getType() == HitResult.Type.MISS ? end : hit.getLocation();
+                // Where the light lands, nudged toward the camera so the surface it lands on does not hide it, and
+                // the middle of the shaft, which packs with volumetric light show too.
+                Vec3 toCamera = camera.subtract(land);
+                Vec3 landing = toCamera.lengthSqr() > 1.0E-4 ? land.add(toCamera.normalize().scale(0.05)) : land;
+                if (sees(level, camera, landing) || sees(level, camera, start.add(land).scale(0.5))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static Vec3 normal(Direction direction) {
+        return new Vec3(direction.getStepX(), direction.getStepY(), direction.getStepZ());
+    }
+
+    private static Vec3 faceCenter(BlockPos pos, Direction direction) {
+        return new Vec3(pos.getX() + 0.5 + direction.getStepX() * 0.5, pos.getY() + 0.5 + direction.getStepY() * 0.5,
+                pos.getZ() + 0.5 + direction.getStepZ() * 0.5);
+    }
+
+    /** Whether nothing stands between the camera and a point (a single ray). */
+    private static boolean sees(Level level, Vec3 camera, Vec3 target) {
         BlockHitResult hit = level.clip(new ClipContext(camera, target, ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, CollisionContext.empty()));
         return hit.getType() == HitResult.Type.MISS;
     }
@@ -274,6 +343,7 @@ public final class ShadowHoles {
     }
 
     static void close() {
+        ThroughDepth.close();
         if (cleared != null) {
             cleared.close();
             cleared = null;
