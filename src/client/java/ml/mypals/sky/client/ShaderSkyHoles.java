@@ -35,22 +35,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.OptionalDouble;
 
-/**
- * The sky block with an Iris shader pack. The pack draws the block as a solid cube, so its buffers hold the block and
- * not what is behind it. The pixels where the block shows then become "sky" for the pack, which draws its own sky
- * there:
- * <ol>
- *     <li>{@link #captureSky}, right after the sky: copy the pack's colortex0, which holds only its sky then.</li>
- *     <li>{@link #draw}, at Iris's {@code beginHand} (opaque scene done, before the deferred passes): copy the depth,
- *     draw the block again with the entity pipeline, which Iris replaces with the pack's program, slightly nearer the
- *     camera, and copy the depth again. The pixels whose depth changed are where the pack drew the block, wherever its
- *     vertex shader put them (render scale, TAA jitter, ...). They get the far depth and the copied sky.</li>
- *     <li>{@link #restoreDepth}, after the deferred passes: the block's depth again, so translucent surfaces behind
- *     the block fail the depth test and those in front still draw.</li>
- *     <li>{@link #farAgain}, before the composite passes: the far depth again where nothing translucent was drawn in
- *     front, so the pack's sky, fog and temporal reprojection treat them as sky.</li>
- * </ol>
- */
+
 public final class ShaderSkyHoles {
     private static final Identifier TEXTURE = SkyMod.id("textures/block/sky.png");
     private static final float NEARER = 1.0F - 1.0F / 4096.0F;

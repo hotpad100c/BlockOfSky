@@ -39,22 +39,7 @@ import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.function.IntSupplier;
 
-/**
- * Shadows through the sky block with an Iris shader pack. Every shadow fragment program of the pack is patched to
- * discard the fragments in a depth range per shadow texel (see {@code CommonTransformerMixin}); this class fills the
- * three depth maps that range is read from, at the start of the shadow pass and before any terrain:
- * <ul>
- *     <li>{@link #FRONT_NEAR}: the faces toward the sun of the blocks in "front" mode. Only the block itself is
- *     dropped there, so it casts no shadow and everything else still does.</li>
- *     <li>{@link #THROUGH_NEAR}: the faces toward the sun of the blocks in "through" mode. Everything nearer the sun
- *     than the block is dropped there: seen from behind the block, it is sky.</li>
- *     <li>{@link #FAR}: the faces away from the sun that border on air, so the back of the block is dropped too.</li>
- * </ul>
- * The maps are drawn through the pack's own shadow program, so they land where its vertex shader puts the terrain
- * (distortion included). A block is in "through" mode when the camera sees what the block lights: one of its faces
- * away from the sun that borders on air, the shaft of sunlight leaving that face, or where the shaft lands. Seen from
- * the sun's side, the block hides its back but often not the light it lets through.
- */
+
 public final class ShadowHoles {
     public static final int FRONT_NEAR = 0;
     static final int THROUGH_NEAR = 1;
@@ -66,25 +51,18 @@ public final class ShadowHoles {
     private static @Nullable GpuTexture cleared;
     private static boolean drawing;
 
-    /** Set by the Iris mixins once they applied; the smoke check reads them. */
     public static boolean patchedShadowFragments;
     public static int patchedShaders;
-    /** Receiver mode: the pack's shadow map comparisons wrapped so far. */
     public static int wrappedShadowReads;
     public static int framesPrepared;
     public static final int[] lastQuads = new int[3];
-    /** Fragments of each set that passed the depth test in the last frame, and frames where a set drew nothing. */
     public static final int[] lastSamples = new int[3];
     public static final int[] emptyFrames = new int[3];
     private static int query;
-
-    /** How far the sunlight leaving a block is followed, in blocks. */
     private static final double SHAFT_LENGTH = 48.0;
-    /** Blocks are checked again only every few frames, each in its own frame, and stay in "through" mode a while. */
     private static final int CHECK_EVERY = 4;
     private static final int HOLD_FRAMES = 12;
     private static final double[][] FACE_SAMPLES = {{0, 0}, {-0.35, -0.35}, {0.35, -0.35}, {0.35, 0.35}, {-0.35, 0.35}};
-    /** The frame each block's light was last seen in. */
     private static Map<BlockPos, Integer> lastSeen = new HashMap<>();
 
     private ShadowHoles() {
@@ -93,13 +71,9 @@ public final class ShadowHoles {
     public static boolean enabled() {
         return !"false".equals(System.getProperty("sky.shadowHoles"));
     }
-
-    /** Whether a draw is one of ours: the color writes are off then, so only the depth is drawn. */
     public static boolean drawing() {
         return drawing;
     }
-
-    /** The GL texture of a map for the pack's sampler, 0 before the first shadow pass. */
     public static IntSupplier glId(int map, java.util.function.ToIntFunction<GpuTexture> id) {
         // While the sky blocks themselves are drawn, the programs see only the far depth: the maps of the previous
         // frame would otherwise make them discard the very faces being drawn.
@@ -112,11 +86,6 @@ public final class ShadowHoles {
     public static @Nullable GpuTexture map(int map) {
         return maps[map];
     }
-
-    /**
-     * Called at the start of the shadow pass, after Iris cleared the shadow map and set the shadow matrices, before
-     * the terrain. Leaves the shadow map as it found it.
-     */
     public static void prepare(GpuTexture shadowDepth, Matrix4f shadowModelView) {
         int size = shadowDepth.getWidth(0);
         ensure(size);
@@ -135,7 +104,7 @@ public final class ShadowHoles {
                 encoder.copyTextureToTexture(cleared, maps[i], 0, 0, 0, 0, 0, size, size);
                 continue;
             }
-            // Faces away from the sun are back faces seen from it: their corners go the other way round, or the
+            // Faces away from the sun are back faces seen from it, their corners go the other way round, or the
             // pipeline's culling drops them.
             IrisAccess.bindShadowFramebuffer();
             if (query == 0) {
@@ -214,10 +183,6 @@ public final class ShadowHoles {
         return sets;
     }
 
-    /**
-     * Whether the camera sees anything the block lights: one of its faces away from the sun, or the sunlight leaving
-     * such a face, followed away from the sun to where it lands, sampled at a few points of the face.
-     */
     private static boolean seesLight(Level level, Vec3 camera, Vec3 sun, BlockPos pos, List<Direction> back) {
         // The faces themselves first: they are the cheapest to check.
         for (Direction direction : back) {
@@ -258,7 +223,6 @@ public final class ShadowHoles {
                 pos.getZ() + 0.5 + direction.getStepZ() * 0.5);
     }
 
-    /** Whether nothing stands between the camera and a point (a single ray). */
     private static boolean sees(Level level, Vec3 camera, Vec3 target) {
         BlockHitResult hit = level.clip(new ClipContext(camera, target, ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, CollisionContext.empty()));
         return hit.getType() == HitResult.Type.MISS;
