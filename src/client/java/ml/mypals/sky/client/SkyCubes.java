@@ -50,6 +50,11 @@ public final class SkyCubes {
         return SkyMod.id("dynamic/sky_face_" + face.getName());
     }
 
+    /** Whether the cube faces exist (for the development check). */
+    public static boolean ready() {
+        return targets != null;
+    }
+
     static boolean isRendering() {
         return rendering;
     }

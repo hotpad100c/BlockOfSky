@@ -19,18 +19,8 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class SkyPipelines {
-    public static final RenderPipeline SKY_FACES = RenderPipelines.register(RenderPipeline.builder(RenderPipelines.GLOBALS_SNIPPET)
-            .withLocation(SkyMod.id("pipeline/sky_faces"))
-            .withVertexShader(SkyMod.id("core/sky_faces"))
-            .withFragmentShader(SkyMod.id("core/sky_faces"))
-            .withBindGroupLayout(BindGroupLayouts.PROJECTION)
-            .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
-            .withBindGroupLayout(samplers("Sampler0", "Sampler1", "Sampler2", "Sampler3", "Sampler4", "Sampler5"))
-            .withVertexBinding(0, DefaultVertexFormat.POSITION)
-            .withPrimitiveTopology(PrimitiveTopology.QUADS)
-            .withColorTargetState(ColorTargetState.DEFAULT)
-            .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, true))
-            .build());
+    public static final RenderPipeline SKY_FACES = skyFaces("sky_faces", false);
+    public static final RenderPipeline SKY_ITEM = skyFaces("sky_item", true);
 
     public static final RenderPipeline HOLE = hole("hole", null, null, "Before", "After");
     private static final Map<GpuFormat, RenderPipeline> HOLE_WITH_SKY = new EnumMap<>(GpuFormat.class);
@@ -53,6 +43,24 @@ public final class SkyPipelines {
 
     public static @Nullable RenderPipeline holeWithSky(GpuFormat format) {
         return HOLE_WITH_SKY.get(format);
+    }
+
+    private static RenderPipeline skyFaces(String name, boolean item) {
+        RenderPipeline.Builder builder = RenderPipeline.builder(RenderPipelines.GLOBALS_SNIPPET)
+                .withLocation(SkyMod.id("pipeline/" + name))
+                .withVertexShader(SkyMod.id("core/sky_faces"))
+                .withFragmentShader(SkyMod.id("core/sky_faces"))
+                .withBindGroupLayout(BindGroupLayouts.PROJECTION)
+                .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
+                .withBindGroupLayout(samplers("Sampler0", "Sampler1", "Sampler2", "Sampler3", "Sampler4", "Sampler5"))
+                .withVertexBinding(0, item ? DefaultVertexFormat.POSITION_COLOR : DefaultVertexFormat.POSITION)
+                .withPrimitiveTopology(PrimitiveTopology.QUADS)
+                .withColorTargetState(ColorTargetState.DEFAULT)
+                .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, true));
+        if (item) {
+            builder.withShaderDefine("ITEM");
+        }
+        return RenderPipelines.register(builder.build());
     }
 
     private static BindGroupLayout samplers(String... names) {

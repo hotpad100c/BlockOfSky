@@ -42,7 +42,7 @@ import java.util.function.IntSupplier;
 
 public final class ShadowHoles {
     public static final int FRONT_NEAR = 0;
-    static final int THROUGH_NEAR = 1;
+    public static final int THROUGH_NEAR = 1;
     public static final int FAR = 2;
     private static final String[] LABELS = {"sky shadow front near", "sky shadow through near", "sky shadow far"};
 
@@ -68,8 +68,14 @@ public final class ShadowHoles {
     private ShadowHoles() {
     }
 
+    private static volatile boolean enabled = !"false".equals(System.getProperty("sky.shadowHoles"));
+
     public static boolean enabled() {
-        return !"false".equals(System.getProperty("sky.shadowHoles"));
+        return enabled;
+    }
+
+    public static void setEnabled(boolean on) {
+        enabled = on;
     }
     public static boolean drawing() {
         return drawing;

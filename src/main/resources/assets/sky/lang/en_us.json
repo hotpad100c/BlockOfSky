@@ -1,3 +1,6 @@
 {
-	"block.sky.sky": "Sky"
+	"block.sky.sky": "Sky",
+	"commands.sky.skyreceiver.on": "Sky blocks, receiver mode: on",
+	"commands.sky.skyreceiver.off": "Sky blocks, receiver mode: off (maps mode)",
+	"commands.sky.skyreceiver.unsupported": "Sky blocks, receiver mode: not supported by this graphics card (maps mode)"
 }

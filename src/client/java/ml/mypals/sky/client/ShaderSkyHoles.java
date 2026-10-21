@@ -29,10 +29,13 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 import org.jspecify.annotations.Nullable;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.OptionalDouble;
 
 
@@ -49,8 +52,19 @@ public final class ShaderSkyHoles {
     private static @Nullable GpuBuffer screenQuad;
     private static boolean restorePending;
     private static boolean farPending;
+    private static final List<Matrix4f> ITEMS = new ArrayList<>();
+    public static int lastItems;
 
     private ShaderSkyHoles() {
+    }
+
+    /** A sky block item in the level this frame, by its pose: relative to the camera, in world axes, as the blocks. */
+    static void addItem(Matrix4f pose) {
+        ITEMS.add(new Matrix4f(pose));
+    }
+
+    static void clearItems() {
+        ITEMS.clear();
     }
 
     static void captureSky() {
@@ -78,7 +92,8 @@ public final class ShaderSkyHoles {
     public static void draw() {
         restorePending = false;
         farPending = false;
-        if (!RenderSystem.isOnRenderThread() || SkyClient.loaded().isEmpty()) {
+        lastItems = ITEMS.size();
+        if (!RenderSystem.isOnRenderThread() || SkyClient.loaded().isEmpty() && ITEMS.isEmpty()) {
             return;
         }
         Vec3 camera = Minecraft.getInstance().gameRenderer.mainCamera().position();
@@ -103,6 +118,19 @@ public final class ShaderSkyHoles {
                                 OverlayTexture.NO_OVERLAY, LightCoordsUtil.FULL_BRIGHT, face.getStepX(), face.getStepY(), face.getStepZ()));
                         quadCount++;
                     }
+                }
+            }
+            Vector3f corner = new Vector3f();
+            Vector3f normal = new Vector3f();
+            for (Matrix4f item : ITEMS) {
+                for (Direction face : Direction.values()) {
+                    item.transformDirection(normal.set(face.getStepX(), face.getStepY(), face.getStepZ())).normalize();
+                    CubeFaces.corners(face, 0, 0, 0, (vx, vy, vz, u, v) -> {
+                        item.transformPosition(vx, vy, vz, corner);
+                        builder.addVertex(corner.x, corner.y, corner.z, -1, u, v,
+                                OverlayTexture.NO_OVERLAY, LightCoordsUtil.FULL_BRIGHT, normal.x, normal.y, normal.z);
+                    });
+                    quadCount++;
                 }
             }
             mesh = builder.build();

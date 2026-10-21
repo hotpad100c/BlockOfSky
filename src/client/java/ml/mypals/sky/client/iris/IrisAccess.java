@@ -8,6 +8,7 @@ import com.mojang.renderpearl.api.textures.GpuTexture;
 import com.mojang.renderpearl.api.textures.GpuTextureView;
 import com.mojang.renderpearl.backend.opengl.FrameBufferCache;
 import com.mojang.renderpearl.backend.opengl.GlTexture;
+import ml.mypals.sky.client.ThroughDepth;
 import ml.mypals.sky.mixin.client.FrontendGpuDeviceAccessor;
 import ml.mypals.sky.mixin.client.GlDeviceAccessor;
 import ml.mypals.sky.mixin.client.iris.IrisRenderingPipelineAccessor;
@@ -18,6 +19,8 @@ import net.irisshaders.iris.shadows.ShadowRenderTargets;
 import net.irisshaders.iris.targets.RenderTarget;
 import net.irisshaders.iris.vertices.ImmediateState;
 import org.jspecify.annotations.Nullable;
+
+import java.io.IOException;
 
 public final class IrisAccess {
     private static @Nullable PackTexture wrapped;
@@ -38,6 +41,30 @@ public final class IrisAccess {
         } finally {
             ImmediateState.bypass = bypass;
         }
+    }
+
+    /** Compiles the pack's programs again: the shadow programs are patched for the sky blocks when they compile. */
+    public static void reload() {
+        try {
+            Iris.reload();
+        } catch (IOException e) {
+            ThroughDepth.LOGGER.error("Shadow holes: could not reload the shader pack", e);
+        }
+    }
+
+    /** Draws with our own and vanilla pipelines as they are, not the pack's programs. */
+    public static void runAsIs(Runnable draw) {
+        boolean bypass = ImmediateState.bypass;
+        ImmediateState.bypass = true;
+        try {
+            draw.run();
+        } finally {
+            ImmediateState.bypass = bypass;
+        }
+    }
+
+    public static boolean renderingShadowPass() {
+        return IrisApi.getInstance().isRenderingShadowPass();
     }
 
     public static boolean packInUse() {

@@ -1,6 +1,9 @@
 package ml.mypals.sky.smoke;
 
+import ml.mypals.sky.client.ShaderSkyHoles;
 import ml.mypals.sky.client.ShadowHoles;
+import ml.mypals.sky.client.SkyCubes;
+import ml.mypals.sky.client.SkyItemRenderer;
 import ml.mypals.sky.client.ThroughDepth;
 import ml.mypals.sky.smoke.mixin.CreateWorldScreenAccessor;
 import net.fabricmc.api.ClientModInitializer;
@@ -9,6 +12,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.irisshaders.iris.api.v0.IrisApi;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.client.tutorial.TutorialSteps;
@@ -29,7 +33,8 @@ import java.util.stream.Stream;
  * Development check, not part of the mod. It builds a dark stone box high in the air with a pillar of sky blocks in the
  * middle, and a stone awning above the box. From inside the box (sunlight should come out of the pillar) and from its
  * roof (the awning's shadow must stay), it takes a screenshot with the shadow holes on and off, and from the roof one
- * with every block forced into "through" mode.
+ * with every block forced into "through" mode. Then it checks the {@code /skyreceiver} command and takes pictures of
+ * the sky block item with the shader pack and without it: in the hand, on the ground and in the inventory.
  * Run it with {@code ./gradlew runSmokeClient}; screenshots land in {@code run/smoke/screenshots}.
  */
 public final class SkySmoke implements ClientModInitializer {
@@ -54,6 +59,7 @@ public final class SkySmoke implements ClientModInitializer {
     private boolean created;
     private boolean built;
     private int builtAtTick;
+    private int extrasFrom = -1;
     private boolean done;
     private BlockPos origin;
     private int shot = -1;
@@ -145,6 +151,10 @@ public final class SkySmoke implements ClientModInitializer {
             finish(mc, "the shadow pass never reached the sky blocks (shadow mixin not applied, or no shadow pass)");
             return;
         }
+        if (this.extrasFrom >= 0) {
+            this.extras(mc, t - this.extrasFrom);
+            return;
+        }
         if (!this.built || ShadowHoles.framesPrepared < this.waitUntilFrame) {
             return;
         }
@@ -165,11 +175,12 @@ public final class SkySmoke implements ClientModInitializer {
             if (ShadowHoles.patchedShaders == 0) {
                 this.failures.add("no shadow fragment program was patched");
             }
-            finish(mc, null);
+            ShadowHoles.setEnabled(true);
+            this.extrasFrom = t;
             return;
         }
         Shot s = SHOTS.get(this.shot);
-        System.setProperty("sky.shadowHoles", Boolean.toString(s.holes()));
+        ShadowHoles.setEnabled(s.holes());
         System.setProperty("sky.shadowHoles.forceThrough", Boolean.toString(s.forceThrough()));
         int x = this.origin.getX();
         int y = this.origin.getY();
@@ -182,6 +193,88 @@ public final class SkySmoke implements ClientModInitializer {
             command(mc, String.format(Locale.ROOT, "tp @s %.1f %.1f %.1f -45 30", x - 4.5, y + 11.0, z - 4.5));
         }
         this.waitUntilFrame = ShadowHoles.framesPrepared + SETTLE_FRAMES;
+    }
+
+    /**
+     * After the shots: the {@code /skyreceiver} command (it reloads the pack), then the item in the hand, on the ground
+     * and in the inventory, with the shader pack and without it.
+     */
+    private void extras(Minecraft mc, int t) {
+        int x = this.origin.getX();
+        int y = this.origin.getY();
+        int z = this.origin.getZ();
+        switch (t) {
+            case 1 -> {
+                // Inside the box the two modes differ: the maps mode draws the pillar "through", the receiver mode "front".
+                System.setProperty("sky.shadowHoles.forceThrough", "false");
+                command(mc, String.format(Locale.ROOT, "tp @s %.1f %.1f %.1f -130 28", x - 5.5, y + 2.5, z + 4.5));
+                command(mc, "skyreceiver off");
+            }
+            case 200 -> {
+                log("after /skyreceiver off: receiver = " + ThroughDepth.enabled() + ", quads " + Arrays.toString(ShadowHoles.lastQuads));
+                if (ThroughDepth.enabled() || shaderPackInUse() && ShadowHoles.lastQuads[ShadowHoles.THROUGH_NEAR] == 0) {
+                    this.failures.add("/skyreceiver off did not switch to the maps mode");
+                }
+                command(mc, "skyreceiver on");
+            }
+            case 400 -> {
+                log("after /skyreceiver on: receiver = " + ThroughDepth.enabled() + " (supported: " + ThroughDepth.supported()
+                        + "), quads " + Arrays.toString(ShadowHoles.lastQuads));
+                if (ThroughDepth.enabled() != ThroughDepth.supported() || ThroughDepth.enabled() && shaderPackInUse()
+                        && (ShadowHoles.lastQuads[ShadowHoles.FRONT_NEAR] == 0 || ShadowHoles.lastQuads[ShadowHoles.THROUGH_NEAR] != 0)) {
+                    this.failures.add("/skyreceiver on did not switch to the receiver mode");
+                }
+                if (mc.gui.hud.isHidden()) {
+                    mc.gui.hud.toggle();
+                }
+                command(mc, "item replace entity @s weapon.mainhand with sky:sky");
+                command(mc, String.format(Locale.ROOT, "summon item %.1f %.1f %.1f {Item:{id:\"sky:sky\",count:1},NoGravity:1b,PickupDelay:32767,Age:-32768}",
+                        x + 4.5, y + 9.4, z + 4.5));
+            }
+            case 410, 710 -> command(mc, String.format(Locale.ROOT, "tp @s %.1f %.1f %.1f 135 -20", x + 6.5, y + 9.0, z + 6.5));
+            case 480 -> {
+                log("shader pack in use: " + shaderPackInUse() + ", items in the level drawn with holes: " + ShaderSkyHoles.lastItems
+                        + ", item drawn with the sky cubes: " + SkyItemRenderer.cubesDrawnRecently());
+                if (shaderPackInUse() && (ShaderSkyHoles.lastItems != 1 || !SkyItemRenderer.cubesDrawnRecently())) {
+                    this.failures.add("with the shader pack, the sky item does not show the sky");
+                }
+                this.itemShot(mc, "item-hand-shader");
+            }
+            case 485, 785 -> command(mc, String.format(Locale.ROOT, "tp @s %.1f %.1f %.1f 135 30", x + 6.5, y + 9.0, z + 6.5));
+            case 545 -> this.itemShot(mc, "item-ground-shader");
+            case 550, 850 -> mc.gui.setScreen(new InventoryScreen(mc.player));
+            case 610 -> this.itemShot(mc, "item-gui-shader");
+            case 620 -> {
+                mc.gui.setScreen(null);
+                if (shaderPackInUse()) {
+                    IrisApi.getInstance().getConfig().setShadersEnabledAndApply(false);
+                }
+            }
+            case 780 -> {
+                boolean drawn = SkyItemRenderer.cubesDrawnRecently();
+                log("shader pack in use: " + shaderPackInUse() + ", sky cubes ready: " + SkyCubes.ready() + ", sky item drawn: " + drawn);
+                if (shaderPackInUse() || !SkyCubes.ready() || !drawn) {
+                    this.failures.add("without the shader pack, the sky item is not drawn with the sky");
+                }
+                this.itemShot(mc, "item-hand");
+            }
+            case 845 -> this.itemShot(mc, "item-ground");
+            case 910 -> this.itemShot(mc, "item-gui");
+            case 920 -> {
+                // Iris saves the setting: the next run needs the pack again.
+                if (FabricLoader.getInstance().isModLoaded("iris")) {
+                    IrisApi.getInstance().getConfig().setShadersEnabledAndApply(true);
+                }
+                finish(mc, null);
+            }
+            default -> {
+            }
+        }
+    }
+
+    private void itemShot(Minecraft mc, String name) {
+        mc.gui.hud.getChat().clearMessages(false);
+        screenshot(mc, name);
     }
 
     private void check(Minecraft mc, Shot s) {

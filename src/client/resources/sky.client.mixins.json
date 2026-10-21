@@ -11,6 +11,7 @@
     "GlCommandEncoderMixin",
     "LevelRendererMixin",
     "SkyRendererMixin",
+    "SpecialModelWrapperMixin",
     "iris.IrisRenderingPipelineAccessor",
     "iris.CommonTransformerMixin",
     "iris.IrisRenderingPipelineMixin",

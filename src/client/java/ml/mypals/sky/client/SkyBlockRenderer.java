@@ -1,6 +1,7 @@
 package ml.mypals.sky.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 import ml.mypals.sky.SkyBlockEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.SubmitNodeCollector;
@@ -18,18 +19,18 @@ import java.util.EnumSet;
 import java.util.Set;
 
 public class SkyBlockRenderer implements BlockEntityRenderer<SkyBlockEntity, SkyBlockRenderer.State> {
-    private static final RenderType SKY_FACES = createRenderType();
+    private static final RenderType SKY_FACES = createRenderType(SkyPipelines.SKY_FACES, "sky_faces");
 
     public static class State extends BlockEntityRenderState {
         final Set<Direction> faces = EnumSet.noneOf(Direction.class);
     }
 
-    private static RenderType createRenderType() {
-        RenderSetup.RenderSetupBuilder setup = RenderSetup.builder(SkyPipelines.SKY_FACES);
+    static RenderType createRenderType(RenderPipeline pipeline, String name) {
+        RenderSetup.RenderSetupBuilder setup = RenderSetup.builder(pipeline);
         for (Direction face : Direction.values()) {
             setup.withTexture("Sampler" + face.ordinal(), SkyCubes.faceTexture(face));
         }
-        return RenderType.create("sky_faces", setup.createRenderSetup());
+        return RenderType.create(name, setup.createRenderSetup());
     }
 
     @Override

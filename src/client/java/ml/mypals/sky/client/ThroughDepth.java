@@ -21,7 +21,9 @@ public final class ThroughDepth {
     public static final Logger LOGGER = LoggerFactory.getLogger("sky");
     private static final int CLEAR = Float.floatToRawIntBits(1.0F);
 
-    private static boolean enabled;
+    private static boolean supported;
+    // The receiver mode is on unless the game starts with sky.shadowHoles.mode=maps; /skyreceiver changes it.
+    private static volatile boolean wanted = !"maps".equals(System.getProperty("sky.shadowHoles.mode"));
     private static int texture;
     private static int framebuffer;
     private static int size;
@@ -30,14 +32,6 @@ public final class ThroughDepth {
     }
 
     public static void detect() {
-        if (!ShadowHoles.enabled()) {
-            LOGGER.info("Shadow holes: off (sky.shadowHoles=false)");
-            return;
-        }
-        if (!"receiver".equals(System.getProperty("sky.shadowHoles.mode"))) {
-            LOGGER.info("Shadow holes: maps mode");
-            return;
-        }
         GLCapabilities caps = GL.getCapabilities();
         List<String> missing = new ArrayList<>();
         if (!caps.OpenGL42 && !caps.GL_ARB_shader_image_load_store) {
@@ -48,16 +42,29 @@ public final class ThroughDepth {
         }
         String context = "OpenGL " + GL11.glGetString(GL11.GL_VERSION) + ", GLSL " + GL11.glGetString(GL20.GL_SHADING_LANGUAGE_VERSION)
                 + ", " + GL11.glGetString(GL11.GL_RENDERER);
-        enabled = missing.isEmpty();
-        if (enabled) {
-            LOGGER.info("Shadow holes: receiver mode ({})", context);
+        supported = missing.isEmpty();
+        if (supported) {
+            LOGGER.info("Shadow holes: receiver mode available, {} ({})", wanted ? "on" : "off", context);
         } else {
             LOGGER.warn("Shadow holes: the receiver mode needs {}, missing on {}; using the maps mode", missing, context);
         }
     }
 
     public static boolean enabled() {
-        return enabled && ShadowHoles.enabled();
+        return supported && wanted && ShadowHoles.enabled();
+    }
+
+    public static boolean supported() {
+        return supported;
+    }
+
+    public static boolean wanted() {
+        return wanted;
+    }
+
+    /** The shadow programs are patched for one mode when they compile: the pack has to be reloaded after this. */
+    public static void setWanted(boolean on) {
+        wanted = on;
     }
 
     public static int glId() {

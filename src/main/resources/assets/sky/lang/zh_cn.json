@@ -1,3 +1,6 @@
 {
-	"block.sky.sky": "天空"
+	"block.sky.sky": "天空",
+	"commands.sky.skyreceiver.on": "天空方块 receiver 模式：开",
+	"commands.sky.skyreceiver.off": "天空方块 receiver 模式：关（maps 模式）",
+	"commands.sky.skyreceiver.unsupported": "天空方块 receiver 模式：显卡不支持（maps 模式）"
 }
